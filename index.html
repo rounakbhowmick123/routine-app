@@ -512,19 +512,33 @@
     // Live Sync with Apps Script
     async function fetchLiveData(url) {
       const icon = document.getElementById('refresh-icon');
-      icon.classList.add('rotate-180');
+      if (icon) icon.classList.add('rotate-180');
       try {
         const response = await fetch(url);
         if (!response.ok) throw new Error('API fetch failed');
         const json = await response.json();
         if (Array.isArray(json) && json.length > 0) {
           fullScheduleData = json;
+
+          // Automatically extract sheet month or deduce from calendar
+          if (json[0]._sheetName) {
+            document.getElementById('current-month-year').textContent = json[0]._sheetName;
+          } else {
+            const now = new Date();
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('current-month-year').textContent = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+          }
+
+          // Jump to today's date in the new month
+          const currentDay = new Date().getDate();
+          selectedDateNumber = (currentDay >= 1 && currentDay <= fullScheduleData.length) ? currentDay : 1;
+
           renderApp();
         }
       } catch (err) {
         console.warn('Could not connect to Apps Script URL, using embedded dataset:', err);
       } finally {
-        setTimeout(() => icon.classList.remove('rotate-180'), 500);
+        if (icon) setTimeout(() => icon.classList.remove('rotate-180'), 500);
       }
     }
 

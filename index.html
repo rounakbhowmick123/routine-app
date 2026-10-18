@@ -391,10 +391,11 @@
         cabPill.classList.add('hidden');
       }
 
-      // Shift Badge
+      // Shift Badge with dynamic shift colors
       const shiftContainer = document.getElementById('shift-badge-container');
+      const shiftColor = (s => !s ? '' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300')(dayRecord.shift);
       shiftContainer.innerHTML = dayRecord.shift 
-        ? `<span class="px-2.5 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">Shift: ${dayRecord.shift}</span>`
+        ? `<span class="px-2.5 py-1 rounded-full text-xs font-black shadow-sm ${shiftColor}">Shift: ${dayRecord.shift}</span>`
         : `<span class="text-xs text-slate-500">No Shift</span>`;
 
       // Process 24 hours into contiguous time windows

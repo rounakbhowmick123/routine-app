@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Shift & Daily Schedule</title>
+
+  <!-- iOS PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#F2F2F7" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            iosBg: '#F2F2F7',
+            iosCard: '#FFFFFF',
+            iosBlue: '#007AFF',
+            iosGreen: '#34C759',
+            iosOrange: '#FF9500',
+            iosPurple: '#AF52DE',
+            iosGray: '#8E8E93',
+            iosRed: '#FF3B30',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* iOS native font stack */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .custom-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-iosBg text-slate-900 min-h-screen flex flex-col antialiased pb-20">
+
+  <!-- iOS Navigation Bar -->
+  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-4 pt-12 pb-3 flex items-center justify-between">
+    <div>
+      <span class="text-xs font-semibold uppercase tracking-wider text-iosGray" id="window-subtitle">3-Day View</span>
+      <h1 class="text-xl font-bold tracking-tight text-slate-900" id="current-range-label">Schedule</h1>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="refreshData()" class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 transition text-iosBlue" title="Sync / Refresh">
+        <svg id="refresh-icon" class="w-5 h-5 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+      <button onclick="openSettings()" class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 transition text-slate-600" title="Settings">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Sub-Header / 3-Day Stepper Navigation -->
+  <section class="px-4 py-3 bg-white/50 backdrop-blur-sm border-b border-slate-200/60 flex items-center justify-between">
+    <button onclick="shiftWindow(-1)" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm active:bg-slate-50 transition flex items-center">
+      <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
+      Prev
+    </button>
+    <div class="flex items-center space-x-1">
+      <button onclick="jumpToCurrentDay()" class="px-3 py-1.5 rounded-lg bg-iosBlue/10 text-iosBlue text-xs font-bold active:bg-iosBlue/20 transition">
+        Today
+      </button>
+      <span id="window-status" class="text-xs font-medium text-slate-500">Days 1 - 3</span>
+    </div>
+    <button onclick="shiftWindow(1)" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm active:bg-slate-50 transition flex items-center">
+      Next
+      <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+    </button>
+  </section>
+
+  <!-- Activity Key / Legend -->
+  <section class="px-4 py-2 flex items-center space-x-3 overflow-x-auto custom-scroll text-[11px] font-semibold text-slate-600">
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span><span>Busy</span></div>
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span>Workout</span></div>
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span>Study</span></div>
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span><span>Music</span></div>
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-indigo-900"></span><span>Sleep</span></div>
+    <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-200 border border-slate-300"></span><span>Free</span></div>
+  </section>
+
+  <!-- Main 3-Day Cards Container -->
+  <main class="flex-1 px-3 py-2 space-y-4 max-w-2xl mx-auto w-full" id="cards-container">
+    <!-- Day cards rendered dynamically -->
+  </main>
+
+  <!-- Settings Modal Drawer -->
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h2 class="text-lg font-bold text-slate-800">Connection Settings</h2>
+        <button onclick="closeSettings()" class="text-iosGray font-semibold text-sm">Done</button>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Apps Script Web App URL</label>
+        <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs font-mono p-3 bg-slate-100 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-iosBlue" />
+        <p class="text-[11px] text-slate-400 mt-1">Leave blank to use internal offline demo data.</p>
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <button onclick="saveApiUrl()" class="w-full py-3 bg-iosBlue text-white font-semibold rounded-xl active:opacity-90 shadow-sm text-sm">
+          Save & Re-sync
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Fallback/Embedded 31-day data from your parsed sheet
+    const FALLBACK_DATA = [
+      {"date":"1","day":"Thursday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"2","day":"Friday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"3","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Workout","5pm - 6pm":"Workout","6pm - 7pm":"Music","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"4","day":"Sunday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"5","day":"Monday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Workout","5pm - 6pm":"Workout","6pm - 7pm":"Music","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"6","day":"Tuesday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Music","5pm - 6pm":"Music","6pm - 7pm":"Music","7pm - 8pm":"Sleep","8pm - 9pm":"Sleep","9pm - 10pm":"Sleep","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"7","day":"Wednesday","shift":"MF","commute":"CAB","monitor_hours":"3 am - 3 pm","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"8","day":"Thursday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"9","day":"Friday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"Study","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"10","day":"Saturday","shift":"NH","commute":"CAB","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"11","day":"Sunday","shift":"NF","commute":"CAB","monitor_hours":"8 pm - 8 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"Workout","12pm - 1pm":"Workout","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"Study","5pm - 6pm":"Study","6pm - 7pm":"Study","7pm - 8pm":"Study","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"12","day":"Monday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Sleep","2pm - 3pm":"Sleep","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"13","day":"Tuesday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"14","day":"Wednesday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"","7am - 8am":"","8am - 9am":"","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"15","day":"Thursday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"16","day":"Friday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"17","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"18","day":"Sunday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"19","day":"Monday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"20","day":"Tuesday","shift":"AF","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"21","day":"Wednesday","shift":"AF","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+      {"date":"22","day":"Thursday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"23","day":"Friday","shift":"NF","commute":"CAB","monitor_hours":"8 pm - 8 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Workout","1pm - 2pm":"Workout","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"24","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Sleep","2pm - 3pm":"Sleep","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"Study","10pm - 11pm":"Study","11pm - 12am":""}},
+      {"date":"25","day":"Sunday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+      {"date":"26","day":"Monday","shift":"WO","commute":"CAB","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"Sleep","6pm - 7pm":"Sleep","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+      {"date":"27","day":"Tuesday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"28","day":"Wednesday","shift":"AF","commute":"","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+      {"date":"29","day":"Thursday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+      {"date":"30","day":"Friday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+      {"date":"31","day":"Saturday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Workout","11am - 12pm":"Workout","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}}
+    ];
+
+    let fullScheduleData = FALLBACK_DATA;
+    let windowStartIndex = 0; // Index of the first of the 3 days displayed
+
+    // Activity Color Map
+    function getActivityStyle(act) {
+      if (!act) return { bg: 'bg-slate-50', text: 'text-transparent', border: 'border-slate-100' };
+      const a = act.toLowerCase();
+      if (a.includes('busy')) return { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' };
+      if (a.includes('workout')) return { bg: 'bg-emerald-500', text: 'text-white', border: 'border-emerald-600' };
+      if (a.includes('study')) return { bg: 'bg-amber-500', text: 'text-white', border: 'border-amber-600' };
+      if (a.includes('music')) return { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600' };
+      if (a.includes('sleep')) return { bg: 'bg-slate-800', text: 'text-slate-200', border: 'border-slate-900' };
+      return { bg: 'bg-slate-200', text: 'text-slate-700', border: 'border-slate-300' };
+    }
+
+    // App Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUrl = localStorage.getItem('apps_script_url');
+      if (savedUrl) {
+        document.getElementById('api-url-input').value = savedUrl;
+        fetchLiveData(savedUrl);
+      } else {
+        jumpToCurrentDay();
+      }
+    });
+
+    function jumpToCurrentDay() {
+      // Find today's date number (1-31)
+      const todayDate = new Date().getDate().toString();
+      const idx = fullScheduleData.findIndex(item => item.date.toString() === todayDate);
+      if (idx !== -1) {
+        // Keep within bounds of 3 items
+        windowStartIndex = Math.min(idx, Math.max(0, fullScheduleData.length - 3));
+      } else {
+        windowStartIndex = 0;
+      }
+      renderCards();
+    }
+
+    function shiftWindow(delta) {
+      const newIndex = windowStartIndex + delta;
+      if (newIndex >= 0 && newIndex <= fullScheduleData.length - 1) {
+        windowStartIndex = newIndex;
+        renderCards();
+      }
+    }
+
+    // Render the 3-day cards
+    function renderCards() {
+      const container = document.getElementById('cards-container');
+      container.innerHTML = '';
+
+      const threeDays = fullScheduleData.slice(windowStartIndex, windowStartIndex + 3);
+      if (threeDays.length === 0) return;
+
+      // Update Header Text
+      const first = threeDays[0];
+      const last = threeDays[threeDays.length - 1];
+      document.getElementById('current-range-label').textContent = `${first.day.slice(0, 3)}, ${first.date} — ${last.day.slice(0, 3)}, ${last.date}`;
+      document.getElementById('window-status').textContent = `Day ${first.date} to ${last.date} of ${fullScheduleData.length}`;
+
+      const todayStr = new Date().getDate().toString();
+
+      threeDays.forEach(dayData => {
+        const isToday = dayData.date.toString() === todayStr;
+
+        // Count Activity Summary hours
+        const hourCounts = {};
+        Object.values(dayData.schedule).forEach(val => {
+          if (val) hourCounts[val] = (hourCounts[val] || 0) + 1;
+        });
+
+        // 24 Hour Grid HTML
+        let timeSlotsHtml = '';
+        const hours = [
+          "12am - 1am", "1am - 2am", "2am - 3am", "3am - 4am", "4am - 5am", "5am - 6am",
+          "6am - 7am", "7am - 8am", "8am - 9am", "9am - 10am", "10am - 11am", "11am - 12pm",
+          "12pm - 1pm", "1pm - 2pm", "2pm - 3pm", "3pm - 4pm", "4pm - 5pm", "5pm - 6pm",
+          "6pm - 7pm", "7pm - 8pm", "8pm - 9pm", "9pm - 10pm", "10pm - 11pm", "11pm - 12am"
+        ];
+
+        hours.forEach(hour => {
+          const act = dayData.schedule[hour] || '';
+          const style = getActivityStyle(act);
+          const shortLabel = hour.split(' - ')[0]; // e.g. "12am"
+
+          timeSlotsHtml += `
+            <div class="flex flex-col items-center">
+              <span class="text-[9px] text-slate-400 font-medium mb-1">${shortLabel}</span>
+              <div class="w-full h-8 rounded-md ${style.bg} border ${style.border} flex items-center justify-center text-[10px] font-bold ${style.text} shadow-sm overflow-hidden px-0.5 truncate" title="${hour}: ${act || 'Free'}">
+                ${act ? act[0] : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        // Pill tags for shift/commute
+        const shiftBadge = dayData.shift ? `<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Shift: ${dayData.shift}</span>` : '';
+        const commuteBadge = dayData.commute ? `<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">${dayData.commute}</span>` : '';
+        const monitorBadge = dayData.monitor_hours ? `<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">${dayData.monitor_hours}</span>` : '';
+
+        // Day Card
+        const card = document.createElement('div');
+        card.className = `bg-white rounded-2xl p-4 shadow-sm border ${isToday ? 'border-iosBlue ring-2 ring-iosBlue/20' : 'border-slate-200/80'} transition-all`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+              <div class="w-12 h-12 rounded-xl flex flex-col items-center justify-center ${isToday ? 'bg-iosBlue text-white shadow-md' : 'bg-slate-100 text-slate-800'}">
+                <span class="text-[10px] uppercase font-bold tracking-wider leading-none">${dayData.day.slice(0, 3)}</span>
+                <span class="text-lg font-black leading-none mt-0.5">${dayData.date}</span>
+              </div>
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <h2 class="text-base font-bold text-slate-800">${dayData.day}</h2>
+                  ${isToday ? '<span class="text-[10px] uppercase font-black tracking-wide bg-iosBlue text-white px-1.5 py-0.5 rounded">Today</span>' : ''}
+                </div>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${shiftBadge}
+                  ${commuteBadge}
+                  ${monitorBadge}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 24h Timeline Scroll Area -->
+          <div class="mt-3">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">24-Hour Timeline</span>
+            <div class="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
+              ${timeSlotsHtml}
+            </div>
+          </div>
+
+          <!-- Activity breakdown pills -->
+          <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+            ${Object.entries(hourCounts).map(([activity, count]) => {
+              const s = getActivityStyle(activity);
+              return `<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70">
+                <span class="w-2 h-2 rounded-full ${s.bg}"></span>
+                <span class="text-slate-700 font-semibold">${activity}:</span>
+                <span class="text-slate-500 font-bold">${count}h</span>
+              </span>`;
+            }).join('')}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Refresh from Google Apps Script endpoint
+    async function fetchLiveData(url) {
+      const icon = document.getElementById('refresh-icon');
+      icon.classList.add('rotate-180');
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response failed');
+        const json = await response.json();
+        if (Array.isArray(json) && json.length > 0) {
+          fullScheduleData = json;
+          jumpToCurrentDay();
+        }
+      } catch (err) {
+        console.warn('Could not fetch remote sheet data, falling back to embedded data:', err);
+      } finally {
+        setTimeout(() => icon.classList.remove('rotate-180'), 500);
+      }
+    }
+
+    function refreshData() {
+      const savedUrl = localStorage.getItem('apps_script_url');
+      if (savedUrl) {
+        fetchLiveData(savedUrl);
+      } else {
+        renderCards();
+      }
+    }
+
+    // Settings Modal Handlers
+    function openSettings() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+      document.getElementById('settings-modal').classList.add('flex');
+    }
+    function closeSettings() {
+      document.getElementById('settings-modal').classList.add('hidden');
+      document.getElementById('settings-modal').classList.remove('flex');
+    }
+    function saveApiUrl() {
+      const val = document.getElementById('api-url-input').value.trim();
+      if (val) {
+        localStorage.setItem('apps_script_url', val);
+        fetchLiveData(val);
+      } else {
+        localStorage.removeItem('apps_script_url');
+        fullScheduleData = FALLBACK_DATA;
+        renderCards();
+      }
+      closeSettings();
+    }
+  </script>
+</body>
+</html>

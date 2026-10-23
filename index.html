@@ -1,75 +1,1173 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
   <title>Schedule & Shifts</title>
 
+
+
   <!-- iOS Web App Meta Tags -->
+
   <meta name="apple-mobile-web-app-capable" content="yes" />
+
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
   <meta name="theme-color" content="#18181b" />
 
+
+
   <!-- Tailwind CSS CDN -->
+
   <script src="https://cdn.tailwindcss.com"></script>
+
   <script>
+
     tailwind.config = {
+
       darkMode: 'class',
+
       theme: {
+
         extend: {
+
           colors: {
+
             appDark: '#121214',
+
             appCard: '#1e1e24',
+
             appSurface: '#26262e',
+
             appBorder: '#2f2f3a',
+
             lavender: {
+
               50: '#f5f3ff',
+
               100: '#ede9fe',
+
               200: '#ddd6fe',
+
               300: '#c4b5fd',
+
               400: '#a78bfa',
+
               500: '#8b5cf6',
+
               800: '#4c1d95',
+
               900: '#2e1065',
+
             }
+
           }
+
         }
+
       }
+
     }
+
   </script>
 
+
+
   <style>
+
     body {
+
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+
       -webkit-tap-highlight-color: transparent;
+
       user-select: none;
+
     }
+
     .custom-scroll::-webkit-scrollbar {
+
       display: none;
+
     }
+
     .custom-scroll {
+
       -ms-overflow-style: none;
+
       scrollbar-width: none;
+
     }
+
   </style>
+
 </head>
+
 <body class="bg-[#121214] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-purple-500 selection:text-white">
 
+
+
   <!-- TOP HEADER: MONTH, YEAR & CONTROLS -->
+
   <header class="sticky top-0 z-30 bg-[#16161a]/90 backdrop-blur-md border-b border-appBorder px-4 pt-10 pb-3">
+
     <div class="max-w-md mx-auto flex items-center justify-between">
+
       <div>
+
         <p class="text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">October 2026</p>
+
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+
           Daily Schedule
+
           <span id="cab-status-pill" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">CAB Day</span>
+
         </h1>
+
       </div>
 
+
+
       <div class="flex items-center space-x-2">
+
         <button onclick="jumpToToday()" class="px-3 py-1.5 rounded-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold active:scale-95 transition">
+
           Today
+
         </button>
+
         <button onclick="refreshData()" class="p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Refresh">
+
           <svg id="refresh-icon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.3
+
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+
+          </svg>
+
+        </button>
+
+        <button onclick="openSettings()" class="p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Settings">
+
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+
+          </svg>
+
+        </button>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+
+  <!-- 7-DAY CIRCULAR DATE STRIP WITH ARROWS -->
+
+  <section class="bg-[#18181c] border-b border-appBorder py-3 px-2">
+
+    <div class="max-w-md mx-auto flex items-center justify-between gap-1">
+
+      <!-- Left Arrow -->
+
+      <button onclick="navigateDays(-1)" aria-label="Previous Day" class="w-8 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface/80 hover:bg-appSurface text-slate-300 active:scale-90 transition">
+
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
+
+      </button>
+
+
+
+      <!-- 7 Circled Dates Container -->
+
+      <div id="seven-days-container" class="flex-1 grid grid-cols-7 gap-1">
+
+        <!-- Rendered via JavaScript -->
+
+      </div>
+
+
+
+      <!-- Right Arrow -->
+
+      <button onclick="navigateDays(1)" aria-label="Next Day" class="w-8 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface/80 hover:bg-appSurface text-slate-300 active:scale-90 transition">
+
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+
+      </button>
+
+    </div>
+
+
+
+    <!-- Legend for Cab Indicator -->
+
+    <div class="max-w-md mx-auto mt-2 px-3 flex items-center justify-between text-[11px] text-slate-400">
+
+      <div class="flex items-center space-x-1.5">
+
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/30"></span>
+
+        <span>Amber Ring / Fill = CAB Commute</span>
+
+      </div>
+
+      <div class="flex items-center space-x-1.5">
+
+        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+
+        <span>Active Selected</span>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- MAIN CONTENT: SCHEDULE DETAILS FOR SELECTED DAY -->
+
+  <main class="flex-1 max-w-md mx-auto w-full px-4 py-4 space-y-4">
+
+
+
+    <!-- Day Overview Summary Badge Card -->
+
+    <section id="day-overview-card" class="bg-appCard border border-appBorder rounded-2xl p-4 shadow-sm">
+
+      <div class="flex items-center justify-between pb-3 border-b border-appBorder/80">
+
+        <div>
+
+          <span id="selected-day-name" class="text-xs uppercase font-extrabold tracking-wider text-purple-400">Thursday</span>
+
+          <h2 id="selected-date-title" class="text-2xl font-black text-white">Date 1</h2>
+
+        </div>
+
+        <div id="shift-badge-container" class="text-right">
+
+          <!-- Dynamic shift pills -->
+
+        </div>
+
+      </div>
+
+
+
+      <div class="grid grid-cols-2 gap-2 mt-3 pt-1 text-xs">
+
+        <div class="bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
+
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Commute</span>
+
+          <span id="meta-commute" class="font-bold text-slate-200">None</span>
+
+        </div>
+
+        <div class="bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
+
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Monitor Hours</span>
+
+          <span id="meta-monitor" class="font-bold text-slate-200">5 hrs</span>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- Activity Blocks Section -->
+
+    <section class="space-y-3">
+
+      <div class="flex items-center justify-between px-1">
+
+        <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Activity Time Windows</h3>
+
+        <span class="text-[11px] text-slate-500">Grouped sessions</span>
+
+      </div>
+
+
+
+      <!-- Container where rows of blocks are injected -->
+
+      <div id="activity-blocks-container" class="space-y-3">
+
+        <!-- Rendered dynamically -->
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+
+  <!-- SETTINGS MODAL -->
+
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-end sm:items-center justify-center p-0 sm:p-4">
+
+    <div class="bg-[#1e1e24] w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl border border-appBorder space-y-4">
+
+      <div class="flex justify-between items-center border-b border-appBorder pb-3">
+
+        <h2 class="text-base font-bold text-white">Sheet API Connection</h2>
+
+        <button onclick="closeSettings()" class="text-slate-400 hover:text-white text-sm font-semibold">Done</button>
+
+      </div>
+
+      <div>
+
+        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Google Apps Script Web App URL</label>
+
+        <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs font-mono p-3 bg-appSurface text-white rounded-xl border border-appBorder focus:outline-none focus:ring-2 focus:ring-purple-500" />
+
+        <p class="text-[11px] text-slate-400 mt-1.5">Leave blank to use embedded schedule data.</p>
+
+      </div>
+
+      <button onclick="saveApiUrl()" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs active:scale-[0.98] transition shadow-md">
+
+        Save & Re-sync
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <script>
+
+    // Complete 31-Day Dataset
+
+    const EMBEDDED_DATA = [
+
+      {"date":"1","day":"Thursday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"2","day":"Friday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"3","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Workout","5pm - 6pm":"Workout","6pm - 7pm":"Music","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"4","day":"Sunday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"5","day":"Monday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Workout","5pm - 6pm":"Workout","6pm - 7pm":"Music","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"6","day":"Tuesday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"Study","3pm - 4pm":"Study","4pm - 5pm":"Music","5pm - 6pm":"Music","6pm - 7pm":"Music","7pm - 8pm":"Sleep","8pm - 9pm":"Sleep","9pm - 10pm":"Sleep","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"7","day":"Wednesday","shift":"MF","commute":"CAB","monitor_hours":"3 am - 3 pm","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"8","day":"Thursday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"9","day":"Friday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"Study","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"10","day":"Saturday","shift":"NH","commute":"CAB","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"11","day":"Sunday","shift":"NF","commute":"CAB","monitor_hours":"8 pm - 8 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"Workout","12pm - 1pm":"Workout","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"Study","5pm - 6pm":"Study","6pm - 7pm":"Study","7pm - 8pm":"Study","8pm - 9pm":"","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"12","day":"Monday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Sleep","2pm - 3pm":"Sleep","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"13","day":"Tuesday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"14","day":"Wednesday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"","7am - 8am":"","8am - 9am":"","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"15","day":"Thursday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"16","day":"Friday","shift":"NH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"17","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"18","day":"Sunday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"","9pm - 10pm":"","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"19","day":"Monday","shift":"MH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Busy","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Workout","4pm - 5pm":"Workout","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"20","day":"Tuesday","shift":"AF","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"21","day":"Wednesday","shift":"AF","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+
+      {"date":"22","day":"Thursday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"23","day":"Friday","shift":"NF","commute":"CAB","monitor_hours":"8 pm - 8 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"Workout","1pm - 2pm":"Workout","2pm - 3pm":"","3pm - 4pm":"","4pm - 5pm":"","5pm - 6pm":"","6pm - 7pm":"","7pm - 8pm":"","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"24","day":"Saturday","shift":"WO","commute":"","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Busy","2am - 3am":"Busy","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Sleep","2pm - 3pm":"Sleep","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"Workout","6pm - 7pm":"Workout","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"Study","10pm - 11pm":"Study","11pm - 12am":""}},
+
+      {"date":"25","day":"Sunday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"","9am - 10am":"Workout","10am - 11am":"Workout","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}},
+
+      {"date":"26","day":"Monday","shift":"WO","commute":"CAB","monitor_hours":"0 hrs","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Workout","9am - 10am":"Workout","10am - 11am":"","11am - 12pm":"Study","12pm - 1pm":"Study","1pm - 2pm":"Study","2pm - 3pm":"","3pm - 4pm":"Sleep","4pm - 5pm":"Sleep","5pm - 6pm":"Sleep","6pm - 7pm":"Sleep","7pm - 8pm":"Music","8pm - 9pm":"Music","9pm - 10pm":"Music","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+
+      {"date":"27","day":"Tuesday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"28","day":"Wednesday","shift":"AF","commute":"","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"Sleep","10am - 11am":"","11am - 12pm":"","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Sleep","11pm - 12am":"Sleep"}},
+
+      {"date":"29","day":"Thursday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Busy","4am - 5am":"Busy","5am - 6am":"Busy","6am - 7am":"Busy","7am - 8am":"Busy","8am - 9am":"Busy","9am - 10am":"Sleep","10am - 11am":"Sleep","11am - 12pm":"Sleep","12pm - 1pm":"Sleep","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"","11pm - 12am":"Sleep"}},
+
+      {"date":"30","day":"Friday","shift":"AF*","commute":"CAB (3am - 9am)","monitor_hours":"1 pm - 1 am","schedule":{"12am - 1am":"Sleep","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Busy","11am - 12pm":"Busy","12pm - 1pm":"Busy","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"Busy","7pm - 8pm":"Busy","8pm - 9pm":"Busy","9pm - 10pm":"Busy","10pm - 11pm":"Busy","11pm - 12am":"Busy"}},
+
+      {"date":"31","day":"Saturday","shift":"AH","commute":"","monitor_hours":"5 hrs","schedule":{"12am - 1am":"Busy","1am - 2am":"Sleep","2am - 3am":"Sleep","3am - 4am":"Sleep","4am - 5am":"Sleep","5am - 6am":"Sleep","6am - 7am":"Sleep","7am - 8am":"Sleep","8am - 9am":"Sleep","9am - 10am":"","10am - 11am":"Workout","11am - 12pm":"Workout","12pm - 1pm":"","1pm - 2pm":"Busy","2pm - 3pm":"Busy","3pm - 4pm":"Busy","4pm - 5pm":"Busy","5pm - 6pm":"Busy","6pm - 7pm":"","7pm - 8pm":"Study","8pm - 9pm":"Study","9pm - 10pm":"","10pm - 11pm":"","11pm - 12am":""}}
+
+    ];
+
+
+
+    let fullScheduleData = EMBEDDED_DATA;
+
+    let selectedDateNumber = 18; // Default current day in month (1 to 31)
+
+
+
+    // Sequential 24-hour slots definition
+
+    const HOUR_SLOTS = [
+
+      "12am - 1am", "1am - 2am", "2am - 3am", "3am - 4am", "4am - 5am", "5am - 6am",
+
+      "6am - 7am", "7am - 8am", "8am - 9am", "9am - 10am", "10am - 11am", "11am - 12pm",
+
+      "12pm - 1pm", "1pm - 2pm", "2pm - 3pm", "3pm - 4pm", "4pm - 5pm", "5pm - 6pm",
+
+      "6pm - 7pm", "7pm - 8pm", "8pm - 9pm", "9pm - 10pm", "10pm - 11pm", "11pm - 12am"
+
+    ];
+
+
+
+    // Activity Color Config:
+
+    // Sleep: Lavender
+
+    // Busy: Grey
+
+    // Music: Yellow
+
+    // Workout: Green
+
+    // Study: Blue
+
+    const ACTIVITY_THEMES = {
+
+      'sleep': {
+
+        name: 'Sleep',
+
+        cardBg: 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200',
+
+        badgeBg: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+
+        dot: 'bg-indigo-400',
+
+        titleColor: 'text-indigo-300'
+
+      },
+
+      'busy': {
+
+        name: 'Busy',
+
+        cardBg: 'bg-slate-800/60 border-slate-600/40 text-slate-200',
+
+        badgeBg: 'bg-slate-700/60 text-slate-300 border-slate-600/60',
+
+        dot: 'bg-slate-400',
+
+        titleColor: 'text-slate-300'
+
+      },
+
+      'music': {
+
+        name: 'Music',
+
+        cardBg: 'bg-amber-950/40 border-amber-500/30 text-amber-200',
+
+        badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+
+        dot: 'bg-amber-400',
+
+        titleColor: 'text-amber-300'
+
+      },
+
+      'workout': {
+
+        name: 'Workout',
+
+        cardBg: 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200',
+
+        badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+
+        dot: 'bg-emerald-400',
+
+        titleColor: 'text-emerald-300'
+
+      },
+
+      'study': {
+
+        name: 'Study',
+
+        cardBg: 'bg-sky-950/40 border-sky-500/30 text-sky-200',
+
+        badgeBg: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+
+        dot: 'bg-sky-400',
+
+        titleColor: 'text-sky-300'
+
+      }
+
+    };
+
+
+
+    // App Startup
+
+    window.addEventListener('DOMContentLoaded', () => {
+
+      // Auto-detect calendar today if in range, else default to 18
+
+      const today = new Date().getDate();
+
+      if (today >= 1 && today <= fullScheduleData.length) {
+
+        selectedDateNumber = today;
+
+      }
+
+
+
+      const savedUrl = localStorage.getItem('apps_script_url');
+
+      if (savedUrl) {
+
+        document.getElementById('api-url-input').value = savedUrl;
+
+        fetchLiveData(savedUrl);
+
+      } else {
+
+        renderApp();
+
+      }
+
+    });
+
+
+
+    function jumpToToday() {
+
+      const today = new Date().getDate();
+
+      if (today >= 1 && today <= fullScheduleData.length) {
+
+        selectedDateNumber = today;
+
+      } else {
+
+        selectedDateNumber = 18;
+
+      }
+
+      renderApp();
+
+    }
+
+
+
+    function navigateDays(delta) {
+
+      const target = selectedDateNumber + delta;
+
+      if (target >= 1 && target <= fullScheduleData.length) {
+
+        selectedDateNumber = target;
+
+        renderApp();
+
+      }
+
+    }
+
+
+
+    function selectDate(dateNum) {
+
+      selectedDateNumber = dateNum;
+
+      renderApp();
+
+    }
+
+
+
+    // Main Render Function
+
+    function renderApp() {
+
+      renderSevenDaysStrip();
+
+      renderDaySchedule();
+
+    }
+
+
+
+    // 1. Render the 7-day carousel strip
+
+    function renderSevenDaysStrip() {
+
+      const container = document.getElementById('seven-days-container');
+
+      container.innerHTML = '';
+
+
+
+      const totalDays = fullScheduleData.length;
+
+
+
+      // Desired: 3 previous, current, 3 upcoming
+
+      let start = selectedDateNumber - 3;
+
+      let end = selectedDateNumber + 3;
+
+
+
+      // Handle edge boundaries (days 1-3 and 29-31)
+
+      if (start < 1) {
+
+        start = 1;
+
+        end = Math.min(7, totalDays);
+
+      } else if (end > totalDays) {
+
+        end = totalDays;
+
+        start = Math.max(1, totalDays - 6);
+
+      }
+
+
+
+      for (let d = start; d <= end; d++) {
+
+        const dayRecord = fullScheduleData.find(item => parseInt(item.date, 10) === d);
+
+        if (!dayRecord) continue;
+
+
+
+        const isSelected = (d === selectedDateNumber);
+
+        const hasCab = dayRecord.commute && dayRecord.commute.trim().toUpperCase().includes('CAB');
+
+        const shortDay = dayRecord.day.slice(0, 3);
+
+
+
+        // Styling rules:
+
+        // - Cab days have amber ring & soft amber fill
+
+        // - Selected day has purple glow & vibrant border
+
+        let circleClasses = 'w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
+
+        let textClasses = 'text-xs font-bold leading-none ';
+
+
+
+        if (isSelected) {
+
+          circleClasses += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
+
+        } else if (hasCab) {
+
+          // Distinct CAB fill styling
+
+          circleClasses += 'bg-amber-500/20 text-amber-300 border-2 border-amber-400 ring-2 ring-amber-400/20';
+
+        } else {
+
+          circleClasses += 'bg-appSurface text-slate-300 border border-appBorder hover:border-slate-500';
+
+        }
+
+
+
+        const dayBtn = document.createElement('button');
+
+        dayBtn.className = 'flex flex-col items-center py-1 rounded-xl active:scale-95 transition';
+
+        dayBtn.onclick = () => selectDate(d);
+
+
+
+        dayBtn.innerHTML = `
+
+          <span class="text-[9px] uppercase font-bold tracking-tight mb-1 ${isSelected ? 'text-purple-400' : 'text-slate-400'}">${shortDay}</span>
+
+          <div class="${circleClasses}">
+
+            <span class="${textClasses}">${d}</span>
+
+            ${hasCab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
+
+          </div>
+
+        `;
+
+        container.appendChild(dayBtn);
+
+      }
+
+    }
+
+
+
+    // 2. Render Day Schedule in Activity Time Windows
+
+    function renderDaySchedule() {
+
+      const dayRecord = fullScheduleData.find(item => parseInt(item.date, 10) === selectedDateNumber);
+
+      if (!dayRecord) return;
+
+
+
+      // Update Header & Meta
+
+      document.getElementById('selected-day-name').textContent = dayRecord.day;
+
+      document.getElementById('selected-date-title').textContent = `${dayRecord.day}, Date ${dayRecord.date}`;
+
+      document.getElementById('meta-commute').textContent = dayRecord.commute || 'None';
+
+      document.getElementById('meta-monitor').textContent = dayRecord.monitor_hours || '0 hrs';
+
+
+
+      // Cab indicator in main title
+
+      const hasCab = dayRecord.commute && dayRecord.commute.trim().toUpperCase().includes('CAB');
+
+      const cabPill = document.getElementById('cab-status-pill');
+
+      if (hasCab) {
+
+        cabPill.classList.remove('hidden');
+
+      } else {
+
+        cabPill.classList.add('hidden');
+
+      }
+
+
+
+      // Shift Badge with dynamic shift colors
+
+      const shiftContainer = document.getElementById('shift-badge-container');
+
+      const shiftColor = (s => !s ? '' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300')(dayRecord.shift);
+
+      shiftContainer.innerHTML = dayRecord.shift 
+
+        ? `<span class="px-2.5 py-1 rounded-full text-xs font-black shadow-sm ${shiftColor}">Shift: ${dayRecord.shift}</span>`
+
+        : `<span class="text-xs text-slate-500">No Shift</span>`;
+
+
+
+      // Process 24 hours into contiguous time windows
+
+      const activityWindows = groupScheduleIntoWindows(dayRecord.schedule);
+
+
+
+      // Render Activity Blocks
+
+      const container = document.getElementById('activity-blocks-container');
+
+      container.innerHTML = '';
+
+
+
+      const activityKeys = ['sleep', 'busy', 'workout', 'study', 'music'];
+
+
+
+      activityKeys.forEach(actKey => {
+
+        const windows = activityWindows[actKey];
+
+        if (!windows || windows.length === 0) return;
+
+
+
+        const theme = ACTIVITY_THEMES[actKey];
+
+
+
+        // Total hours calculated for this activity today
+
+        const totalHours = windows.reduce((acc, curr) => acc + curr.duration, 0);
+
+
+
+        const row = document.createElement('div');
+
+        row.className = `rounded-2xl border p-3.5 ${theme.cardBg} transition-all shadow-sm`;
+
+
+
+        // Generate side-by-side session pills
+
+        const sessionPillsHtml = windows.map((w, idx) => `
+
+          <div class="flex-1 min-w-[130px] rounded-xl border p-2.5 ${theme.badgeBg} flex flex-col justify-between">
+
+            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300 mb-1">
+
+              <span>Window ${idx + 1}</span>
+
+              <span class="text-[10px] font-bold opacity-80">${w.duration} hr${w.duration > 1 ? 's' : ''}</span>
+
+            </div>
+
+            <div class="text-sm font-black text-white tracking-wide">
+
+              ${w.startLabel} <span class="text-xs font-normal opacity-70">to</span> ${w.endLabel}
+
+            </div>
+
+          </div>
+
+        `).join('');
+
+
+
+        row.innerHTML = `
+
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+
+            <div class="flex items-center space-x-2">
+
+              <span class="w-2.5 h-2.5 rounded-full ${theme.dot}"></span>
+
+              <h4 class="text-sm font-bold uppercase tracking-wider ${theme.titleColor}">${theme.name}</h4>
+
+            </div>
+
+            <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-black/30 border border-white/10 text-white">
+
+              Total: ${totalHours} hrs
+
+            </span>
+
+          </div>
+
+
+
+          <!-- Windows laid side-by-side in same row -->
+
+          <div class="flex flex-wrap gap-2.5 mt-1">
+
+            ${sessionPillsHtml}
+
+          </div>
+
+        `;
+
+
+
+        container.appendChild(row);
+
+      });
+
+
+
+      // If no activities were logged
+
+      if (container.children.length === 0) {
+
+        container.innerHTML = `
+
+          <div class="p-8 text-center text-slate-400 bg-appCard rounded-2xl border border-appBorder">
+
+            <p class="text-sm font-semibold">No scheduled activity</p>
+
+            <p class="text-xs text-slate-500 mt-1">This day is completely free.</p>
+
+          </div>
+
+        `;
+
+      }
+
+    }
+
+
+
+    // Helper: Combines consecutive 1-hour slots into continuous windows (e.g. 12am - 6am)
+
+    function groupScheduleIntoWindows(schedule) {
+
+      const grouped = {};
+
+
+
+      let currentActivity = null;
+
+      let startIdx = 0;
+
+
+
+      for (let i = 0; i < HOUR_SLOTS.length; i++) {
+
+        const slot = HOUR_SLOTS[i];
+
+        const rawAct = (schedule[slot] || '').trim().toLowerCase();
+
+
+
+        if (rawAct !== currentActivity) {
+
+          // Save previous sequence if it was a recognized activity
+
+          if (currentActivity && currentActivity !== '') {
+
+            saveWindow(grouped, currentActivity, startIdx, i - 1);
+
+          }
+
+          currentActivity = rawAct;
+
+          startIdx = i;
+
+        }
+
+      }
+
+
+
+      // Final boundary
+
+      if (currentActivity && currentActivity !== '') {
+
+        saveWindow(grouped, currentActivity, startIdx, HOUR_SLOTS.length - 1);
+
+      }
+
+
+
+      return grouped;
+
+    }
+
+
+
+    function saveWindow(grouped, activity, sIdx, eIdx) {
+
+      if (!grouped[activity]) grouped[activity] = [];
+
+
+
+      const startParts = HOUR_SLOTS[sIdx].split(' - ');
+
+      const endParts = HOUR_SLOTS[eIdx].split(' - ');
+
+
+
+      const startLabel = startParts[0]; // e.g., "12am"
+
+      const endLabel = endParts[1];     // e.g., "6am"
+
+      const duration = (eIdx - sIdx + 1);
+
+
+
+      grouped[activity].push({
+
+        startLabel,
+
+        endLabel,
+
+        duration
+
+      });
+
+    }
+
+
+
+    // Live Sync with Apps Script
+
+    // Live Sync with Apps Script (Always Fresh, No Safari Cache)
+
+    async function fetchLiveData(url) {
+
+      const icon = document.getElementById('refresh-icon');
+
+      if (icon) icon.classList.add('rotate-180');
+
+      try {
+
+        // Cache-buster parameter forces Safari and Google to bypass all cached responses
+
+        const cacheBuster = (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+
+        const response = await fetch(url + cacheBuster, {
+
+          cache: 'no-store',
+
+          headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+
+        });
+
+
+
+        if (!response.ok) throw new Error('API fetch failed');
+
+        const json = await response.json();
+
+
+
+        if (Array.isArray(json) && json.length > 0) {
+
+          fullScheduleData = json;
+
+
+
+          // Automatically extract sheet month or deduce from calendar
+
+          if (json[0]._sheetName) {
+
+            document.getElementById('current-month-year').textContent = json[0]._sheetName;
+
+          } else {
+
+            const now = new Date();
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+            document.getElementById('current-month-year').textContent = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+          }
+
+
+
+          // Maintain user's currently selected day if valid, otherwise jump to today
+
+          const currentDay = new Date().getDate();
+
+          if (selectedDateNumber < 1 || selectedDateNumber > fullScheduleData.length) {
+
+            selectedDateNumber = (currentDay >= 1 && currentDay <= fullScheduleData.length) ? currentDay : 1;
+
+          }
+
+
+
+          renderApp();
+
+        }
+
+      } catch (err) {
+
+        console.warn('Could not connect to Apps Script URL, using embedded dataset:', err);
+
+      } finally {
+
+        if (icon) setTimeout(() => icon.classList.remove('rotate-180'), 500);
+
+      }
+
+    }
+
+
+
+    function refreshData() {
+
+      const savedUrl = localStorage.getItem('apps_script_url');
+
+      if (savedUrl) {
+
+        fetchLiveData(savedUrl);
+
+      } else {
+
+        renderApp();
+
+      }
+
+    }
+
+
+
+    // Settings Modal
+
+    function openSettings() {
+
+      document.getElementById('settings-modal').classList.remove('hidden');
+
+      document.getElementById('settings-modal').classList.add('flex');
+
+    }
+
+    function closeSettings() {
+
+      document.getElementById('settings-modal').classList.add('hidden');
+
+      document.getElementById('settings-modal').classList.remove('flex');
+
+    }
+
+    function saveApiUrl() {
+
+      const val = document.getElementById('api-url-input').value.trim();
+
+      if (val) {
+
+        localStorage.setItem('apps_script_url', val);
+
+        fetchLiveData(val);
+
+      } else {
+
+        localStorage.removeItem('apps_script_url');
+
+        fullScheduleData = EMBEDDED_DATA;
+
+        renderApp();
+
+      }
+
+      closeSettings();
+
+    }
+
+  </script>
+
+</body>
+
+</html>

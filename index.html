@@ -83,16 +83,16 @@
     </div>
   </section>
 
-  <!-- LAPTOP ONLY: 5-DAY STRIP WITH NAVIGATION ARROWS -->
+  <!-- LAPTOP ONLY: 5-DAY STRIP WITH FULL 5-DAY WINDOW JUMP ARROWS -->
   <section class="hidden lg:block bg-[#18181c] border-b border-appBorder py-3 px-6">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-      <button onclick="navigateDays(-1)" aria-label="Previous Day" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition">
+      <button onclick="navigateWindow(-1)" aria-label="Previous 5 Days" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Previous 5 Days">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
       </button>
 
       <div id="laptop-days-container" class="flex-1 grid grid-cols-5 gap-3"></div>
 
-      <button onclick="navigateDays(1)" aria-label="Next Day" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition">
+      <button onclick="navigateWindow(1)" aria-label="Next 5 Days" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Next 5 Days">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
       </button>
     </div>
@@ -167,11 +167,12 @@
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
     const AUTO_REFRESH_MS = 60 * 1000;
-    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (used for mobile scroll haptics)
+    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (mobile haptics)
 
     // ---------- STATE ----------
     let fullScheduleData = [];
     let selectedDateNumber = new Date().getDate();
+    let laptopWindowStart = 1; // Start date of 5-day view on laptop
     let lastPayload = '';
     let pollTimer = null;
     let stripInitialized = false;
@@ -190,7 +191,8 @@
       busy:    { name: 'Busy',    dot: 'bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.5)]',  titleColor: 'text-slate-300',  rowBg: 'bg-slate-900/30 hover:bg-slate-900/40 border-slate-700/30', pillBg: 'bg-slate-800/40 border-slate-700/50 text-slate-300' },
       music:   { name: 'Music',   dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]',   titleColor: 'text-amber-300',  rowBg: 'bg-amber-950/20 hover:bg-amber-950/30 border-amber-500/20', pillBg: 'bg-amber-500/10 border-amber-500/30 text-amber-200' },
       workout: { name: 'Workout', dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]', titleColor: 'text-emerald-300',rowBg: 'bg-emerald-950/20 hover:bg-emerald-950/30 border-emerald-500/20', pillBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' },
-      study:   { name: 'Study',   dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]',     titleColor: 'text-sky-300',    rowBg: 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/20', pillBg: 'bg-sky-500/10 border-sky-500/30 text-sky-200' }
+      study:   { name: 'Study',   dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]',     titleColor: 'text-sky-300',    rowBg: 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/20', pillBg: 'bg-sky-500/10 border-sky-500/30 text-sky-200' },
+      free:    { name: 'Free',    dot: 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]',     titleColor: 'text-white',      rowBg: 'bg-white/5 hover:bg-white/10 border-white/20',             pillBg: 'bg-white/10 border-white/30 text-white' }
     };
     const DEFAULT_THEME = { dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]', titleColor: 'text-purple-300', rowBg: 'bg-purple-950/20 hover:bg-purple-950/30 border-purple-500/20', pillBg: 'bg-purple-500/10 border-purple-500/30 text-purple-200' };
 
@@ -260,31 +262,51 @@
       el.className = 'text-[10px] mt-0.5 ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
-    // ---------- SELECTION ----------
+    // ---------- SELECTION & WINDOW NAVIGATION ----------
     function hasDate(d) { return fullScheduleData.some(r => parseInt(r.date, 10) === d); }
+
+    function syncLaptopWindowToSelection() {
+      const total = fullScheduleData.length || 31;
+      const maxStart = Math.max(1, total - 4);
+      // Keep laptop window enclosing selected date
+      if (selectedDateNumber < laptopWindowStart || selectedDateNumber >= laptopWindowStart + 5) {
+        laptopWindowStart = Math.min(Math.max(1, selectedDateNumber - 2), maxStart);
+      }
+    }
 
     function selectDate(n) {
       selectedDateNumber = n;
+      syncLaptopWindowToSelection();
       haptic();
       updateStripSelection();
       renderDaySchedule();
       renderLaptopMultiDay();
     }
 
-    function navigateDays(delta) {
-      const target = selectedDateNumber + delta;
-      if (hasDate(target)) {
-        selectedDateNumber = target;
-        updateStripSelection();
-        renderDaySchedule();
-        renderLaptopMultiDay();
-      }
+    // Laptop: Moves the whole window of 5 dates left (-1) or right (+1)
+    function navigateWindow(direction) {
+      const total = fullScheduleData.length || 31;
+      const maxStart = Math.max(1, total - 4);
+      let newStart = laptopWindowStart + (direction * 5);
+
+      if (newStart < 1) newStart = 1;
+      if (newStart > maxStart) newStart = maxStart;
+
+      laptopWindowStart = newStart;
+      // Auto select the first date of the new window
+      selectedDateNumber = laptopWindowStart;
+
+      updateStripSelection();
+      renderDaySchedule();
+      renderLaptopMultiDay();
     }
 
     function jumpToToday() {
       const today = new Date().getDate();
       if (hasDate(today)) selectedDateNumber = today;
       else if (fullScheduleData.length) selectedDateNumber = parseInt(fullScheduleData[0].date, 10);
+      
+      syncLaptopWindowToSelection();
       haptic();
       updateStripSelection();
       scrollSelectedIntoView();
@@ -305,6 +327,7 @@
         const today = new Date().getDate();
         selectedDateNumber = hasDate(today) ? today : parseInt(json[0].date, 10);
       }
+      syncLaptopWindowToSelection();
       buildStrip();
       renderDaySchedule();
       renderLaptopMultiDay();
@@ -347,7 +370,7 @@
       else if (manual) openSettings();
     }
 
-    // ---------- DATE STRIP (MOBILE & LAPTOP) ----------
+    // ---------- DATE STRIP ----------
     function hasCabFor(rec) {
       return !!(rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
     }
@@ -360,20 +383,12 @@
       return c;
     }
 
-    function getFiveDaysRange() {
-      const totalDays = fullScheduleData.length;
-      if (totalDays === 0) return [];
-      let start = selectedDateNumber - 2;
-      let end = selectedDateNumber + 2;
-      if (start < 1) {
-        start = 1;
-        end = Math.min(5, totalDays);
-      } else if (end > totalDays) {
-        end = totalDays;
-        start = Math.max(1, totalDays - 4);
-      }
+    function getFiveDaysWindow() {
+      const total = fullScheduleData.length;
+      if (total === 0) return [];
       const list = [];
-      for (let d = start; d <= end; d++) {
+      const end = Math.min(laptopWindowStart + 4, total);
+      for (let d = laptopWindowStart; d <= end; d++) {
         const item = fullScheduleData.find(r => parseInt(r.date, 10) === d);
         if (item) list.push(item);
       }
@@ -412,7 +427,6 @@
         setTimeout(() => { suppressTick = false; }, 150);
       }
 
-      // Laptop 5-day Carousel
       buildLaptopStrip();
     }
 
@@ -421,7 +435,7 @@
       if (!container) return;
       container.innerHTML = '';
 
-      const fiveDays = getFiveDaysRange();
+      const fiveDays = getFiveDaysWindow();
       fiveDays.forEach(rec => {
         const d = parseInt(rec.date, 10);
         const cab = hasCabFor(rec);
@@ -446,7 +460,7 @@
     }
 
     function updateStripSelection() {
-      // Update Mobile
+      // Mobile update
       document.querySelectorAll('#days-scroller .day-item').forEach(btn => {
         const d = parseInt(btn.dataset.day, 10);
         const rec = fullScheduleData.find(r => parseInt(r.date, 10) === d);
@@ -456,7 +470,7 @@
         btn.querySelector('.day-label').className = 'day-label text-[9px] uppercase font-bold tracking-tight mb-1 ' + (selected ? 'text-purple-400' : 'text-slate-400');
       });
 
-      // Rebuild Laptop 5-day strip
+      // Laptop update
       buildLaptopStrip();
     }
 
@@ -503,22 +517,12 @@
 
       const rows = buildTimeline(rec.schedule || {});
 
-      // Extra laptop card metadata
       const shiftWindowElem = document.getElementById('meta-shift-window');
       const activityCountElem = document.getElementById('meta-activity-count');
       if (shiftWindowElem) shiftWindowElem.textContent = s ? `Code ${s}` : 'Off';
       if (activityCountElem) activityCountElem.textContent = `${rows.length} blocks`;
 
       if (!container) return;
-
-      if (!rows.length) {
-        container.innerHTML = `
-          <div class="p-8 text-center text-slate-400 bg-appCard rounded-2xl border border-appBorder">
-            <p class="text-sm font-semibold">No scheduled activity</p>
-            <p class="text-xs text-slate-500 mt-1">This day is completely free.</p>
-          </div>`;
-        return;
-      }
 
       const body = rows.map(r => {
         const t = themeFor(r.key, r.label);
@@ -547,7 +551,7 @@
       if (!container) return;
       container.innerHTML = '';
 
-      const fiveDays = getFiveDaysRange();
+      const fiveDays = getFiveDaysWindow();
       if (!fiveDays.length) return;
 
       fiveDays.forEach(rec => {
@@ -565,30 +569,22 @@
             : 'bg-appCard border-appBorder hover:border-slate-600'
         }`;
 
-        let blocksHtml = '';
-        if (!rows.length) {
-          blocksHtml = `
-            <div class="text-center py-10 text-slate-500 text-xs font-medium">
-              Free Day
+        const blocksHtml = rows.map(r => {
+          const t = themeFor(r.key, r.label);
+          return `
+            <div class="p-2 rounded-xl border ${t.rowBg} space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full ${t.dot}"></span>
+                  <span class="text-xs font-bold ${t.titleColor}">${esc(t.name)}</span>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-400">${r.duration}h</span>
+              </div>
+              <div class="text-[11px] font-black text-white px-2 py-0.5 rounded-md border ${t.pillBg} text-center">
+                ${esc(r.start)} – ${esc(r.end)}
+              </div>
             </div>`;
-        } else {
-          blocksHtml = rows.map(r => {
-            const t = themeFor(r.key, r.label);
-            return `
-              <div class="p-2 rounded-xl border ${t.rowBg} space-y-1">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-2 h-2 rounded-full ${t.dot}"></span>
-                    <span class="text-xs font-bold ${t.titleColor}">${esc(t.name)}</span>
-                  </div>
-                  <span class="text-[10px] font-semibold text-slate-400">${r.duration}h</span>
-                </div>
-                <div class="text-[11px] font-black text-white px-2 py-0.5 rounded-md border ${t.pillBg} text-center">
-                  ${esc(r.start)} – ${esc(r.end)}
-                </div>
-              </div>`;
-          }).join('');
-        }
+        }).join('');
 
         col.innerHTML = `
           <div>
@@ -616,6 +612,7 @@
       });
     }
 
+    // Chronological timeline: empty/blank cells become "Free", merging consecutive matching slots
     function buildTimeline(schedule) {
       const rows = [];
       let cur = null, curLabel = '', startIdx = 0;
@@ -632,7 +629,11 @@
       };
 
       for (let i = 0; i < HOUR_SLOTS.length; i++) {
-        const label = String(schedule[HOUR_SLOTS[i]] || '').trim();
+        let label = String(schedule[HOUR_SLOTS[i]] || '').trim();
+        // Treat empty cells as "Free"
+        if (!label) {
+          label = 'Free';
+        }
         const key = label.toLowerCase();
         if (key !== cur) {
           flush(i - 1);

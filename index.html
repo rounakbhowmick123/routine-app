@@ -150,13 +150,13 @@
     ];
 
     const ACTIVITY_THEMES = {
-      sleep:   { name: 'Sleep',   dot: 'bg-indigo-400',  titleColor: 'text-indigo-300' },
-      busy:    { name: 'Busy',    dot: 'bg-slate-400',   titleColor: 'text-slate-300' },
-      music:   { name: 'Music',   dot: 'bg-amber-400',   titleColor: 'text-amber-300' },
-      workout: { name: 'Workout', dot: 'bg-emerald-400', titleColor: 'text-emerald-300' },
-      study:   { name: 'Study',   dot: 'bg-sky-400',     titleColor: 'text-sky-300' }
+      sleep:   { name: 'Sleep',   dot: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]',   titleColor: 'text-rose-400',   rowBg: 'bg-rose-950/20 hover:bg-rose-950/30 border-rose-500/20', pillBg: 'bg-rose-500/10 border-rose-500/30 text-rose-200' },
+      busy:    { name: 'Busy',    dot: 'bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.5)]',  titleColor: 'text-slate-300',  rowBg: 'bg-slate-900/30 hover:bg-slate-900/40 border-slate-700/30', pillBg: 'bg-slate-800/40 border-slate-700/50 text-slate-300' },
+      music:   { name: 'Music',   dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]',   titleColor: 'text-amber-300',  rowBg: 'bg-amber-950/20 hover:bg-amber-950/30 border-amber-500/20', pillBg: 'bg-amber-500/10 border-amber-500/30 text-amber-200' },
+      workout: { name: 'Workout', dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]', titleColor: 'text-emerald-300',rowBg: 'bg-emerald-950/20 hover:bg-emerald-950/30 border-emerald-500/20', pillBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' },
+      study:   { name: 'Study',   dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]',     titleColor: 'text-sky-300',    rowBg: 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/20', pillBg: 'bg-sky-500/10 border-sky-500/30 text-sky-200' }
     };
-    const DEFAULT_THEME = { dot: 'bg-purple-400', titleColor: 'text-purple-300' };
+    const DEFAULT_THEME = { dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]', titleColor: 'text-purple-300', rowBg: 'bg-purple-950/20 hover:bg-purple-950/30 border-purple-500/20', pillBg: 'bg-purple-500/10 border-purple-500/30 text-purple-200' };
 
     function themeFor(key, rawName) {
       return ACTIVITY_THEMES[key] || { ...DEFAULT_THEME, name: rawName };
@@ -169,7 +169,6 @@
     }
 
     // ---------- HAPTICS ----------
-    // Android: Vibration API. iOS 17.4+: toggling a hidden <input switch> gives a tick.
     function haptic() {
       try {
         if (navigator.vibrate) { navigator.vibrate(8); return; }
@@ -226,7 +225,6 @@
     // ---------- SELECTION ----------
     function hasDate(d) { return fullScheduleData.some(r => parseInt(r.date, 10) === d); }
 
-    // Only called by tapping a date or "Today" - scrolling never changes selection
     function selectDate(n) {
       selectedDateNumber = n;
       haptic();
@@ -311,7 +309,6 @@
       return c;
     }
 
-    // Builds the full month strip once per data change; keeps the scroll position
     function buildStrip() {
       const scroller = document.getElementById('days-scroller');
       const keep = scroller.scrollLeft;
@@ -342,7 +339,6 @@
       setTimeout(() => { suppressTick = false; }, 150);
     }
 
-    // Updates only the highlight - does not rebuild or move the scroll
     function updateStripSelection() {
       document.querySelectorAll('#days-scroller .day-item').forEach(btn => {
         const d = parseInt(btn.dataset.day, 10);
@@ -406,29 +402,24 @@
       const body = rows.map(r => {
         const t = themeFor(r.key, r.label);
         return `
-          <div class="grid grid-cols-2 items-center px-4 py-3 border-t border-appBorder/70">
-            <div class="flex items-center space-x-2">
+          <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${t.rowBg} transition-all duration-150">
+            <div class="flex items-center space-x-2.5">
               <span class="w-2.5 h-2.5 rounded-full ${t.dot}"></span>
-              <span class="text-sm font-bold ${t.titleColor}">${esc(t.name)}</span>
+              <span class="text-sm font-bold tracking-wide ${t.titleColor}">${esc(t.name)}</span>
             </div>
-            <div class="text-sm font-bold text-white">
-              ${esc(r.start)} – ${esc(r.end)}
-              <span class="text-[10px] font-semibold text-slate-500 ml-1">${r.duration}h</span>
+            <div class="flex items-center space-x-2 px-2.5 py-1 rounded-lg border ${t.pillBg}">
+              <span class="text-xs font-black tracking-wide">${esc(r.start)} – ${esc(r.end)}</span>
+              <span class="text-[10px] font-bold opacity-75">(${r.duration}h)</span>
             </div>
           </div>`;
       }).join('');
 
       container.innerHTML = `
-        <div class="rounded-2xl border border-appBorder bg-appCard overflow-hidden shadow-sm">
-          <div class="grid grid-cols-2 px-4 py-2 bg-appSurface/60 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-            <span>Activity</span><span>Time</span>
-          </div>
+        <div class="rounded-2xl border border-appBorder bg-appCard p-2.5 space-y-1.5 shadow-sm">
           ${body}
         </div>`;
     }
 
-    // Chronological rows: consecutive hours of the same activity merge into one row.
-    // The same activity later in the day becomes its own separate row.
     function buildTimeline(schedule) {
       const rows = [];
       let cur = null, curLabel = '', startIdx = 0;

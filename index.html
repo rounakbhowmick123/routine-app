@@ -19,9 +19,24 @@
   </script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+    #days-scroller {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      position: relative;
+    }
+    #days-scroller::-webkit-scrollbar { display: none; }
+    .day-item { scroll-snap-align: center; flex: 0 0 44px; }
   </style>
 </head>
 <body class="bg-[#121214] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-purple-500 selection:text-white">
+
+  <!-- Hidden switch used for iOS haptic feedback -->
+  <label id="haptic-label" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;">
+    <input type="checkbox" switch id="haptic-switch" tabindex="-1" />
+  </label>
 
   <header class="sticky top-0 z-30 bg-[#16161a]/90 backdrop-blur-md border-b border-appBorder px-4 pt-10 pb-3">
     <div class="max-w-md mx-auto flex items-center justify-between">
@@ -50,24 +65,19 @@
     </div>
   </header>
 
-  <section class="bg-[#18181c] border-b border-appBorder py-3 px-2">
-    <div class="max-w-md mx-auto flex items-center justify-between gap-1">
-      <button onclick="navigateDays(-1)" aria-label="Previous Day" class="w-8 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface/80 hover:bg-appSurface text-slate-300 active:scale-90 transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
-      </button>
-      <div id="seven-days-container" class="flex-1 grid grid-cols-7 gap-1"></div>
-      <button onclick="navigateDays(1)" aria-label="Next Day" class="w-8 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface/80 hover:bg-appSurface text-slate-300 active:scale-90 transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
-      </button>
+  <!-- SCROLLABLE DATE STRIP -->
+  <section class="bg-[#18181c] border-b border-appBorder py-3">
+    <div class="max-w-md mx-auto">
+      <div id="days-scroller" class="flex gap-2 px-4"></div>
     </div>
-    <div class="max-w-md mx-auto mt-2 px-3 flex items-center justify-between text-[11px] text-slate-400">
+    <div class="max-w-md mx-auto mt-2 px-4 flex items-center justify-between text-[11px] text-slate-400">
       <div class="flex items-center space-x-1.5">
         <span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/30"></span>
-        <span>Amber Ring / Fill = CAB Commute</span>
+        <span>Amber = CAB Commute</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-        <span>Active Selected</span>
+        <span>Selected</span>
       </div>
     </div>
   </section>
@@ -94,11 +104,10 @@
     </section>
 
     <section class="space-y-3">
-      <div class="flex items-center justify-between px-1">
-        <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Activity Time Windows</h3>
-        <span class="text-[11px] text-slate-500">Grouped sessions</span>
+      <div class="px-1">
+        <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Schedule</h3>
       </div>
-      <div id="activity-blocks-container" class="space-y-3"></div>
+      <div id="activity-blocks-container"></div>
     </section>
   </main>
 
@@ -121,13 +130,17 @@
   <script>
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
-    const AUTO_REFRESH_MS = 60 * 1000; // poll every 60s while the page is visible
+    const AUTO_REFRESH_MS = 60 * 1000;
+    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (used for scroll haptics)
 
     // ---------- STATE ----------
     let fullScheduleData = [];
     let selectedDateNumber = new Date().getDate();
     let lastPayload = '';
     let pollTimer = null;
+    let stripInitialized = false;
+    let lastTickIdx = -1;
+    let suppressTick = false;
 
     const HOUR_SLOTS = [
       "12am - 1am", "1am - 2am", "2am - 3am", "3am - 4am", "4am - 5am", "5am - 6am",
@@ -137,21 +150,31 @@
     ];
 
     const ACTIVITY_THEMES = {
-      sleep:   { name: 'Sleep',   cardBg: 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200',   badgeBg: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',   dot: 'bg-indigo-400',  titleColor: 'text-indigo-300' },
-      busy:    { name: 'Busy',    cardBg: 'bg-slate-800/60 border-slate-600/40 text-slate-200',      badgeBg: 'bg-slate-700/60 text-slate-300 border-slate-600/60',      dot: 'bg-slate-400',   titleColor: 'text-slate-300' },
-      music:   { name: 'Music',   cardBg: 'bg-amber-950/40 border-amber-500/30 text-amber-200',      badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',      dot: 'bg-amber-400',   titleColor: 'text-amber-300' },
-      workout: { name: 'Workout', cardBg: 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200', badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', dot: 'bg-emerald-400', titleColor: 'text-emerald-300' },
-      study:   { name: 'Study',   cardBg: 'bg-sky-950/40 border-sky-500/30 text-sky-200',            badgeBg: 'bg-sky-500/20 text-sky-300 border-sky-500/40',            dot: 'bg-sky-400',     titleColor: 'text-sky-300' }
+      sleep:   { name: 'Sleep',   dot: 'bg-indigo-400',  titleColor: 'text-indigo-300' },
+      busy:    { name: 'Busy',    dot: 'bg-slate-400',   titleColor: 'text-slate-300' },
+      music:   { name: 'Music',   dot: 'bg-amber-400',   titleColor: 'text-amber-300' },
+      workout: { name: 'Workout', dot: 'bg-emerald-400', titleColor: 'text-emerald-300' },
+      study:   { name: 'Study',   dot: 'bg-sky-400',     titleColor: 'text-sky-300' }
     };
-    const DEFAULT_THEME = { cardBg: 'bg-purple-950/40 border-purple-500/30 text-purple-200', badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/40', dot: 'bg-purple-400', titleColor: 'text-purple-300' };
-    const KNOWN_ORDER = ['sleep', 'busy', 'workout', 'study', 'music'];
+    const DEFAULT_THEME = { dot: 'bg-purple-400', titleColor: 'text-purple-300' };
 
     function themeFor(key, rawName) {
       return ACTIVITY_THEMES[key] || { ...DEFAULT_THEME, name: rawName };
     }
-
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
     function getApiUrl() {
       return localStorage.getItem('apps_script_url') || DEFAULT_API_URL;
+    }
+
+    // ---------- HAPTICS ----------
+    // Android: Vibration API. iOS 17.4+: toggling a hidden <input switch> gives a tick.
+    function haptic() {
+      try {
+        if (navigator.vibrate) { navigator.vibrate(8); return; }
+        document.getElementById('haptic-label').click();
+      } catch (e) {}
     }
 
     // ---------- STARTUP ----------
@@ -159,7 +182,16 @@
       const url = getApiUrl();
       document.getElementById('api-url-input').value = url;
 
-      // Show last known data instantly (works offline), then fetch fresh
+      const scroller = document.getElementById('days-scroller');
+      scroller.addEventListener('scroll', () => {
+        if (suppressTick) return;
+        const idx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
+        if (idx !== lastTickIdx) {
+          lastTickIdx = idx;
+          haptic();
+        }
+      }, { passive: true });
+
       try {
         const cached = JSON.parse(localStorage.getItem('schedule_cache') || 'null');
         if (cached && Array.isArray(cached.data) && cached.data.length) {
@@ -172,7 +204,7 @@
         fetchLiveData(url);
         startPolling();
       } else {
-        renderApp();
+        renderDaySchedule();
         openSettings();
       }
     });
@@ -191,22 +223,26 @@
       el.className = 'text-[10px] mt-0.5 ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
-    // ---------- NAVIGATION ----------
-    function maxDate() {
-      return fullScheduleData.reduce((m, r) => Math.max(m, parseInt(r.date, 10) || 0), 0);
-    }
+    // ---------- SELECTION ----------
     function hasDate(d) { return fullScheduleData.some(r => parseInt(r.date, 10) === d); }
+
+    // Only called by tapping a date or "Today" - scrolling never changes selection
+    function selectDate(n) {
+      selectedDateNumber = n;
+      haptic();
+      updateStripSelection();
+      renderDaySchedule();
+    }
 
     function jumpToToday() {
       const today = new Date().getDate();
-      selectedDateNumber = hasDate(today) ? today : (fullScheduleData.length ? parseInt(fullScheduleData[0].date, 10) : 1);
-      renderApp();
+      if (hasDate(today)) selectedDateNumber = today;
+      else if (fullScheduleData.length) selectedDateNumber = parseInt(fullScheduleData[0].date, 10);
+      haptic();
+      updateStripSelection();
+      scrollSelectedIntoView();
+      renderDaySchedule();
     }
-    function navigateDays(delta) {
-      const target = selectedDateNumber + delta;
-      if (hasDate(target)) { selectedDateNumber = target; renderApp(); }
-    }
-    function selectDate(n) { selectedDateNumber = n; renderApp(); }
 
     // ---------- DATA ----------
     function applyData(json) {
@@ -214,15 +250,19 @@
       if (json[0] && json[0]._sheetName) {
         document.getElementById('current-month-year').textContent = json[0]._sheetName;
       } else {
-        const now = new Date();
         document.getElementById('current-month-year').textContent =
-          now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
       }
       if (!hasDate(selectedDateNumber)) {
         const today = new Date().getDate();
         selectedDateNumber = hasDate(today) ? today : parseInt(json[0].date, 10);
       }
-      renderApp();
+      buildStrip();
+      renderDaySchedule();
+      if (!stripInitialized) {
+        scrollSelectedIntoView();
+        stripInitialized = true;
+      }
     }
 
     async function fetchLiveData(url) {
@@ -239,7 +279,6 @@
 
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setStatus('Synced · ' + time);
-        // Only re-render if something actually changed
         if (text !== lastPayload) {
           lastPayload = text;
           applyData(json);
@@ -259,49 +298,75 @@
       else if (manual) openSettings();
     }
 
-    // ---------- RENDER ----------
-    function renderApp() {
-      renderSevenDaysStrip();
-      renderDaySchedule();
+    // ---------- DATE STRIP ----------
+    function hasCabFor(rec) {
+      return !!(rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
     }
 
-    function renderSevenDaysStrip() {
-      const container = document.getElementById('seven-days-container');
-      container.innerHTML = '';
-      if (!fullScheduleData.length) return;
+    function dayCircleClasses(selected, cab) {
+      let c = 'w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
+      if (selected) c += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
+      else if (cab) c += 'bg-amber-500/20 text-amber-300 border-2 border-amber-400 ring-2 ring-amber-400/20';
+      else c += 'bg-appSurface text-slate-300 border border-appBorder';
+      return c;
+    }
 
-      const totalDays = maxDate();
-      let start = selectedDateNumber - 3;
-      let end = selectedDateNumber + 3;
-      if (start < 1) { start = 1; end = Math.min(7, totalDays); }
-      else if (end > totalDays) { end = totalDays; start = Math.max(1, totalDays - 6); }
+    // Builds the full month strip once per data change; keeps the scroll position
+    function buildStrip() {
+      const scroller = document.getElementById('days-scroller');
+      const keep = scroller.scrollLeft;
+      suppressTick = true;
+      scroller.innerHTML = '';
 
-      for (let d = start; d <= end; d++) {
-        const rec = fullScheduleData.find(i => parseInt(i.date, 10) === d);
-        if (!rec) continue;
-
-        const isSelected = d === selectedDateNumber;
-        const hasCab = rec.commute && rec.commute.trim().toUpperCase().includes('CAB');
-        const shortDay = (rec.day || '').slice(0, 3);
-
-        let circle = 'w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
-        if (isSelected) circle += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
-        else if (hasCab) circle += 'bg-amber-500/20 text-amber-300 border-2 border-amber-400 ring-2 ring-amber-400/20';
-        else circle += 'bg-appSurface text-slate-300 border border-appBorder hover:border-slate-500';
+      const sorted = [...fullScheduleData].sort((a, b) => parseInt(a.date, 10) - parseInt(b.date, 10));
+      sorted.forEach(rec => {
+        const d = parseInt(rec.date, 10);
+        const cab = hasCabFor(rec);
+        const selected = d === selectedDateNumber;
 
         const btn = document.createElement('button');
-        btn.className = 'flex flex-col items-center py-1 rounded-xl active:scale-95 transition';
+        btn.className = 'day-item flex flex-col items-center py-1 rounded-xl active:scale-95 transition';
+        btn.dataset.day = d;
         btn.onclick = () => selectDate(d);
         btn.innerHTML = `
-          <span class="text-[9px] uppercase font-bold tracking-tight mb-1 ${isSelected ? 'text-purple-400' : 'text-slate-400'}">${shortDay}</span>
-          <div class="${circle}">
+          <span class="day-label text-[9px] uppercase font-bold tracking-tight mb-1 ${selected ? 'text-purple-400' : 'text-slate-400'}">${esc((rec.day || '').slice(0, 3))}</span>
+          <div class="day-circle ${dayCircleClasses(selected, cab)}">
             <span class="text-xs font-bold leading-none">${d}</span>
-            ${hasCab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
+            ${cab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
           </div>`;
-        container.appendChild(btn);
-      }
+        scroller.appendChild(btn);
+      });
+
+      scroller.scrollLeft = keep;
+      lastTickIdx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
+      setTimeout(() => { suppressTick = false; }, 150);
     }
 
+    // Updates only the highlight - does not rebuild or move the scroll
+    function updateStripSelection() {
+      document.querySelectorAll('#days-scroller .day-item').forEach(btn => {
+        const d = parseInt(btn.dataset.day, 10);
+        const rec = fullScheduleData.find(r => parseInt(r.date, 10) === d);
+        const cab = rec ? hasCabFor(rec) : false;
+        const selected = d === selectedDateNumber;
+        btn.querySelector('.day-circle').className = 'day-circle ' + dayCircleClasses(selected, cab);
+        btn.querySelector('.day-label').className = 'day-label text-[9px] uppercase font-bold tracking-tight mb-1 ' + (selected ? 'text-purple-400' : 'text-slate-400');
+      });
+    }
+
+    function scrollSelectedIntoView() {
+      const scroller = document.getElementById('days-scroller');
+      const btn = scroller.querySelector(`[data-day="${selectedDateNumber}"]`);
+      if (!btn) return;
+      suppressTick = true;
+      scroller.scrollTo({ left: btn.offsetLeft - (scroller.clientWidth - btn.offsetWidth) / 2, behavior: 'smooth' });
+      setTimeout(() => {
+        lastTickIdx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
+        suppressTick = false;
+      }, 600);
+    }
+
+    // ---------- DAY DETAILS + TABLE ----------
     function renderDaySchedule() {
       const container = document.getElementById('activity-blocks-container');
       const rec = fullScheduleData.find(i => parseInt(i.date, 10) === selectedDateNumber);
@@ -319,76 +384,62 @@
       document.getElementById('selected-date-title').textContent = `${rec.day}, Date ${rec.date}`;
       document.getElementById('meta-commute').textContent = rec.commute || 'None';
       document.getElementById('meta-monitor').textContent = rec.monitor_hours || '0 hrs';
-
-      const hasCab = rec.commute && rec.commute.trim().toUpperCase().includes('CAB');
-      document.getElementById('cab-status-pill').classList.toggle('hidden', !hasCab);
+      document.getElementById('cab-status-pill').classList.toggle('hidden', !hasCabFor(rec));
 
       const s = rec.shift;
       const shiftColor = !s ? '' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300';
       document.getElementById('shift-badge-container').innerHTML = s
-        ? `<span class="px-2.5 py-1 rounded-full text-xs font-black shadow-sm ${shiftColor}">Shift: ${s}</span>`
+        ? `<span class="px-2.5 py-1 rounded-full text-xs font-black shadow-sm ${shiftColor}">Shift: ${esc(s)}</span>`
         : `<span class="text-xs text-slate-500">No Shift</span>`;
 
-      const windows = groupScheduleIntoWindows(rec.schedule || {});
-      container.innerHTML = '';
+      const rows = buildTimeline(rec.schedule || {});
 
-      // Known activities first (fixed order), then any new ones you add in the sheet
-      const keys = Object.keys(windows).sort((a, b) => {
-        const ia = KNOWN_ORDER.indexOf(a), ib = KNOWN_ORDER.indexOf(b);
-        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-      });
-
-      keys.forEach(key => {
-        const list = windows[key].items;
-        const theme = themeFor(key, windows[key].label);
-        const total = list.reduce((a, c) => a + c.duration, 0);
-
-        const pills = list.map((w, idx) => `
-          <div class="flex-1 min-w-[130px] rounded-xl border p-2.5 ${theme.badgeBg} flex flex-col justify-between">
-            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300 mb-1">
-              <span>Window ${idx + 1}</span>
-              <span class="text-[10px] font-bold opacity-80">${w.duration} hr${w.duration > 1 ? 's' : ''}</span>
-            </div>
-            <div class="text-sm font-black text-white tracking-wide">
-              ${w.startLabel} <span class="text-xs font-normal opacity-70">to</span> ${w.endLabel}
-            </div>
-          </div>`).join('');
-
-        const row = document.createElement('div');
-        row.className = `rounded-2xl border p-3.5 ${theme.cardBg} transition-all shadow-sm`;
-        row.innerHTML = `
-          <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-            <div class="flex items-center space-x-2">
-              <span class="w-2.5 h-2.5 rounded-full ${theme.dot}"></span>
-              <h4 class="text-sm font-bold uppercase tracking-wider ${theme.titleColor}"></h4>
-            </div>
-            <span class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-black/30 border border-white/10 text-white">Total: ${total} hrs</span>
-          </div>
-          <div class="flex flex-wrap gap-2.5 mt-1">${pills}</div>`;
-        row.querySelector('h4').textContent = theme.name;
-        container.appendChild(row);
-      });
-
-      if (!container.children.length) {
+      if (!rows.length) {
         container.innerHTML = `
           <div class="p-8 text-center text-slate-400 bg-appCard rounded-2xl border border-appBorder">
             <p class="text-sm font-semibold">No scheduled activity</p>
             <p class="text-xs text-slate-500 mt-1">This day is completely free.</p>
           </div>`;
+        return;
       }
+
+      const body = rows.map(r => {
+        const t = themeFor(r.key, r.label);
+        return `
+          <div class="grid grid-cols-2 items-center px-4 py-3 border-t border-appBorder/70">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full ${t.dot}"></span>
+              <span class="text-sm font-bold ${t.titleColor}">${esc(t.name)}</span>
+            </div>
+            <div class="text-sm font-bold text-white">
+              ${esc(r.start)} – ${esc(r.end)}
+              <span class="text-[10px] font-semibold text-slate-500 ml-1">${r.duration}h</span>
+            </div>
+          </div>`;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="rounded-2xl border border-appBorder bg-appCard overflow-hidden shadow-sm">
+          <div class="grid grid-cols-2 px-4 py-2 bg-appSurface/60 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+            <span>Activity</span><span>Time</span>
+          </div>
+          ${body}
+        </div>`;
     }
 
-    // Combine consecutive identical hourly slots into windows
-    function groupScheduleIntoWindows(schedule) {
-      const grouped = {};
+    // Chronological rows: consecutive hours of the same activity merge into one row.
+    // The same activity later in the day becomes its own separate row.
+    function buildTimeline(schedule) {
+      const rows = [];
       let cur = null, curLabel = '', startIdx = 0;
 
       const flush = endIdx => {
         if (!cur) return;
-        if (!grouped[cur]) grouped[cur] = { label: curLabel, items: [] };
-        grouped[cur].items.push({
-          startLabel: HOUR_SLOTS[startIdx].split(' - ')[0],
-          endLabel: HOUR_SLOTS[endIdx].split(' - ')[1],
+        rows.push({
+          key: cur,
+          label: curLabel,
+          start: HOUR_SLOTS[startIdx].split(' - ')[0],
+          end: HOUR_SLOTS[endIdx].split(' - ')[1],
           duration: endIdx - startIdx + 1
         });
       };
@@ -402,7 +453,7 @@
         }
       }
       flush(HOUR_SLOTS.length - 1);
-      return grouped;
+      return rows;
     }
 
     // ---------- SETTINGS ----------

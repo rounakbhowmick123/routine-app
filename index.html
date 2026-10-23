@@ -38,8 +38,9 @@
     <input type="checkbox" switch id="haptic-switch" tabindex="-1" />
   </label>
 
-  <header class="sticky top-0 z-30 bg-[#16161a]/90 backdrop-blur-md border-b border-appBorder px-4 pt-10 pb-3">
-    <div class="max-w-md mx-auto flex items-center justify-between">
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-30 bg-[#16161a]/90 backdrop-blur-md border-b border-appBorder px-4 pt-4 md:pt-4 pb-3">
+    <div class="max-w-md lg:max-w-7xl mx-auto flex items-center justify-between">
       <div>
         <p class="text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">&nbsp;</p>
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -65,8 +66,8 @@
     </div>
   </header>
 
-  <!-- SCROLLABLE DATE STRIP -->
-  <section class="bg-[#18181c] border-b border-appBorder py-3">
+  <!-- MOBILE ONLY: HORIZONTAL SCROLLABLE DATE STRIP -->
+  <section class="block lg:hidden bg-[#18181c] border-b border-appBorder py-3">
     <div class="max-w-md mx-auto">
       <div id="days-scroller" class="flex gap-2 px-4"></div>
     </div>
@@ -82,7 +83,24 @@
     </div>
   </section>
 
-  <main class="flex-1 max-w-md mx-auto w-full px-4 py-4 space-y-4">
+  <!-- LAPTOP ONLY: 5-DAY STRIP WITH NAVIGATION ARROWS -->
+  <section class="hidden lg:block bg-[#18181c] border-b border-appBorder py-3 px-6">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <button onclick="navigateDays(-1)" aria-label="Previous Day" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
+      </button>
+
+      <div id="laptop-days-container" class="flex-1 grid grid-cols-5 gap-3"></div>
+
+      <button onclick="navigateDays(1)" aria-label="Next Day" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 w-full max-w-md lg:max-w-7xl mx-auto px-4 py-4 space-y-4">
+    <!-- Selected Day Overview Info Card -->
     <section id="day-overview-card" class="bg-appCard border border-appBorder rounded-2xl p-4 shadow-sm">
       <div class="flex items-center justify-between pb-3 border-b border-appBorder/80">
         <div>
@@ -91,7 +109,7 @@
         </div>
         <div id="shift-badge-container" class="text-right"></div>
       </div>
-      <div class="grid grid-cols-2 gap-2 mt-3 pt-1 text-xs">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3 pt-1 text-xs">
         <div class="bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
           <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Commute</span>
           <span id="meta-commute" class="font-bold text-slate-200">None</span>
@@ -100,14 +118,32 @@
           <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Monitor Hours</span>
           <span id="meta-monitor" class="font-bold text-slate-200">-</span>
         </div>
+        <div class="hidden lg:block bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Shift Window</span>
+          <span id="meta-shift-window" class="font-bold text-slate-200">-</span>
+        </div>
+        <div class="hidden lg:block bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Activities</span>
+          <span id="meta-activity-count" class="font-bold text-slate-200">-</span>
+        </div>
       </div>
     </section>
 
-    <section class="space-y-3">
+    <!-- MOBILE ONLY: Single Day Activity Blocks -->
+    <section class="block lg:hidden space-y-3">
       <div class="px-1">
         <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Schedule</h3>
       </div>
       <div id="activity-blocks-container"></div>
+    </section>
+
+    <!-- LAPTOP ONLY: 5-Day Columns Multi-Date View -->
+    <section class="hidden lg:block space-y-3">
+      <div class="flex items-center justify-between px-1">
+        <h3 class="text-sm uppercase font-bold tracking-wider text-purple-400">Date-Wise Schedule (5 Days)</h3>
+        <span class="text-xs text-slate-400">Click any day header to select</span>
+      </div>
+      <div id="laptop-multi-day-container" class="grid grid-cols-5 gap-3"></div>
     </section>
   </main>
 
@@ -131,7 +167,7 @@
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
     const AUTO_REFRESH_MS = 60 * 1000;
-    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (used for scroll haptics)
+    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (used for mobile scroll haptics)
 
     // ---------- STATE ----------
     let fullScheduleData = [];
@@ -182,14 +218,16 @@
       document.getElementById('api-url-input').value = url;
 
       const scroller = document.getElementById('days-scroller');
-      scroller.addEventListener('scroll', () => {
-        if (suppressTick) return;
-        const idx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
-        if (idx !== lastTickIdx) {
-          lastTickIdx = idx;
-          haptic();
-        }
-      }, { passive: true });
+      if (scroller) {
+        scroller.addEventListener('scroll', () => {
+          if (suppressTick) return;
+          const idx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
+          if (idx !== lastTickIdx) {
+            lastTickIdx = idx;
+            haptic();
+          }
+        }, { passive: true });
+      }
 
       try {
         const cached = JSON.parse(localStorage.getItem('schedule_cache') || 'null');
@@ -230,6 +268,17 @@
       haptic();
       updateStripSelection();
       renderDaySchedule();
+      renderLaptopMultiDay();
+    }
+
+    function navigateDays(delta) {
+      const target = selectedDateNumber + delta;
+      if (hasDate(target)) {
+        selectedDateNumber = target;
+        updateStripSelection();
+        renderDaySchedule();
+        renderLaptopMultiDay();
+      }
     }
 
     function jumpToToday() {
@@ -240,6 +289,7 @@
       updateStripSelection();
       scrollSelectedIntoView();
       renderDaySchedule();
+      renderLaptopMultiDay();
     }
 
     // ---------- DATA ----------
@@ -257,6 +307,7 @@
       }
       buildStrip();
       renderDaySchedule();
+      renderLaptopMultiDay();
       if (!stripInitialized) {
         scrollSelectedIntoView();
         stripInitialized = true;
@@ -296,7 +347,7 @@
       else if (manual) openSettings();
     }
 
-    // ---------- DATE STRIP ----------
+    // ---------- DATE STRIP (MOBILE & LAPTOP) ----------
     function hasCabFor(rec) {
       return !!(rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
     }
@@ -305,41 +356,97 @@
       let c = 'w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
       if (selected) c += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
       else if (cab) c += 'bg-amber-500/20 text-amber-300 border-2 border-amber-400 ring-2 ring-amber-400/20';
-      else c += 'bg-appSurface text-slate-300 border border-appBorder';
+      else c += 'bg-appSurface text-slate-300 border border-appBorder hover:border-slate-500';
       return c;
     }
 
-    function buildStrip() {
-      const scroller = document.getElementById('days-scroller');
-      const keep = scroller.scrollLeft;
-      suppressTick = true;
-      scroller.innerHTML = '';
+    function getFiveDaysRange() {
+      const totalDays = fullScheduleData.length;
+      if (totalDays === 0) return [];
+      let start = selectedDateNumber - 2;
+      let end = selectedDateNumber + 2;
+      if (start < 1) {
+        start = 1;
+        end = Math.min(5, totalDays);
+      } else if (end > totalDays) {
+        end = totalDays;
+        start = Math.max(1, totalDays - 4);
+      }
+      const list = [];
+      for (let d = start; d <= end; d++) {
+        const item = fullScheduleData.find(r => parseInt(r.date, 10) === d);
+        if (item) list.push(item);
+      }
+      return list;
+    }
 
-      const sorted = [...fullScheduleData].sort((a, b) => parseInt(a.date, 10) - parseInt(b.date, 10));
-      sorted.forEach(rec => {
+    function buildStrip() {
+      // Mobile Strip
+      const scroller = document.getElementById('days-scroller');
+      if (scroller) {
+        const keep = scroller.scrollLeft;
+        suppressTick = true;
+        scroller.innerHTML = '';
+
+        const sorted = [...fullScheduleData].sort((a, b) => parseInt(a.date, 10) - parseInt(b.date, 10));
+        sorted.forEach(rec => {
+          const d = parseInt(rec.date, 10);
+          const cab = hasCabFor(rec);
+          const selected = d === selectedDateNumber;
+
+          const btn = document.createElement('button');
+          btn.className = 'day-item flex flex-col items-center py-1 rounded-xl active:scale-95 transition';
+          btn.dataset.day = d;
+          btn.onclick = () => selectDate(d);
+          btn.innerHTML = `
+            <span class="day-label text-[9px] uppercase font-bold tracking-tight mb-1 ${selected ? 'text-purple-400' : 'text-slate-400'}">${esc((rec.day || '').slice(0, 3))}</span>
+            <div class="day-circle ${dayCircleClasses(selected, cab)}">
+              <span class="text-xs font-bold leading-none">${d}</span>
+              ${cab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
+            </div>`;
+          scroller.appendChild(btn);
+        });
+
+        scroller.scrollLeft = keep;
+        lastTickIdx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
+        setTimeout(() => { suppressTick = false; }, 150);
+      }
+
+      // Laptop 5-day Carousel
+      buildLaptopStrip();
+    }
+
+    function buildLaptopStrip() {
+      const container = document.getElementById('laptop-days-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const fiveDays = getFiveDaysRange();
+      fiveDays.forEach(rec => {
         const d = parseInt(rec.date, 10);
         const cab = hasCabFor(rec);
         const selected = d === selectedDateNumber;
 
         const btn = document.createElement('button');
-        btn.className = 'day-item flex flex-col items-center py-1 rounded-xl active:scale-95 transition';
-        btn.dataset.day = d;
+        btn.className = `p-3 rounded-2xl border transition-all flex items-center justify-between ${
+          selected ? 'bg-purple-950/40 border-purple-500/60 ring-2 ring-purple-500/30' : 'bg-appCard border-appBorder hover:border-slate-600'
+        }`;
         btn.onclick = () => selectDate(d);
         btn.innerHTML = `
-          <span class="day-label text-[9px] uppercase font-bold tracking-tight mb-1 ${selected ? 'text-purple-400' : 'text-slate-400'}">${esc((rec.day || '').slice(0, 3))}</span>
-          <div class="day-circle ${dayCircleClasses(selected, cab)}">
-            <span class="text-xs font-bold leading-none">${d}</span>
+          <div class="text-left">
+            <span class="text-xs uppercase font-extrabold ${selected ? 'text-purple-300' : 'text-slate-400'}">${esc(rec.day)}</span>
+            <p class="text-lg font-black text-white">Date ${d}</p>
+          </div>
+          <div class="${dayCircleClasses(selected, cab)}">
+            <span class="text-xs font-bold">${d}</span>
             ${cab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
           </div>`;
-        scroller.appendChild(btn);
+        container.appendChild(btn);
       });
-
-      scroller.scrollLeft = keep;
-      lastTickIdx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
-      setTimeout(() => { suppressTick = false; }, 150);
     }
 
     function updateStripSelection() {
+      // Update Mobile
       document.querySelectorAll('#days-scroller .day-item').forEach(btn => {
         const d = parseInt(btn.dataset.day, 10);
         const rec = fullScheduleData.find(r => parseInt(r.date, 10) === d);
@@ -348,10 +455,14 @@
         btn.querySelector('.day-circle').className = 'day-circle ' + dayCircleClasses(selected, cab);
         btn.querySelector('.day-label').className = 'day-label text-[9px] uppercase font-bold tracking-tight mb-1 ' + (selected ? 'text-purple-400' : 'text-slate-400');
       });
+
+      // Rebuild Laptop 5-day strip
+      buildLaptopStrip();
     }
 
     function scrollSelectedIntoView() {
       const scroller = document.getElementById('days-scroller');
+      if (!scroller) return;
       const btn = scroller.querySelector(`[data-day="${selectedDateNumber}"]`);
       if (!btn) return;
       suppressTick = true;
@@ -362,17 +473,19 @@
       }, 600);
     }
 
-    // ---------- DAY DETAILS + TABLE ----------
+    // ---------- DAY DETAILS ----------
     function renderDaySchedule() {
       const container = document.getElementById('activity-blocks-container');
       const rec = fullScheduleData.find(i => parseInt(i.date, 10) === selectedDateNumber);
 
       if (!rec) {
-        container.innerHTML = `
-          <div class="p-8 text-center text-slate-400 bg-appCard rounded-2xl border border-appBorder">
-            <p class="text-sm font-semibold">${getApiUrl() ? 'Waiting for data…' : 'Not connected'}</p>
-            <p class="text-xs text-slate-500 mt-1">${getApiUrl() ? 'Tap the refresh button to retry.' : 'Tap the gear icon and paste your Apps Script URL.'}</p>
-          </div>`;
+        if (container) {
+          container.innerHTML = `
+            <div class="p-8 text-center text-slate-400 bg-appCard rounded-2xl border border-appBorder">
+              <p class="text-sm font-semibold">${getApiUrl() ? 'Waiting for data…' : 'Not connected'}</p>
+              <p class="text-xs text-slate-500 mt-1">${getApiUrl() ? 'Tap the refresh button to retry.' : 'Tap the gear icon and paste your Apps Script URL.'}</p>
+            </div>`;
+        }
         return;
       }
 
@@ -389,6 +502,14 @@
         : `<span class="text-xs text-slate-500">No Shift</span>`;
 
       const rows = buildTimeline(rec.schedule || {});
+
+      // Extra laptop card metadata
+      const shiftWindowElem = document.getElementById('meta-shift-window');
+      const activityCountElem = document.getElementById('meta-activity-count');
+      if (shiftWindowElem) shiftWindowElem.textContent = s ? `Code ${s}` : 'Off';
+      if (activityCountElem) activityCountElem.textContent = `${rows.length} blocks`;
+
+      if (!container) return;
 
       if (!rows.length) {
         container.innerHTML = `
@@ -418,6 +539,81 @@
         <div class="rounded-2xl border border-appBorder bg-appCard p-2.5 space-y-1.5 shadow-sm">
           ${body}
         </div>`;
+    }
+
+    // ---------- LAPTOP ONLY: 5-DAY MULTI-COLUMN VIEW ----------
+    function renderLaptopMultiDay() {
+      const container = document.getElementById('laptop-multi-day-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const fiveDays = getFiveDaysRange();
+      if (!fiveDays.length) return;
+
+      fiveDays.forEach(rec => {
+        const d = parseInt(rec.date, 10);
+        const isSelected = d === selectedDateNumber;
+        const cab = hasCabFor(rec);
+        const s = rec.shift;
+        const shiftColor = !s ? 'bg-slate-700 text-slate-300' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300';
+        const rows = buildTimeline(rec.schedule || {});
+
+        const col = document.createElement('div');
+        col.className = `rounded-2xl border p-3 flex flex-col justify-between transition-all duration-200 ${
+          isSelected 
+            ? 'bg-[#1b1926] border-purple-500/60 ring-2 ring-purple-500/30 shadow-lg' 
+            : 'bg-appCard border-appBorder hover:border-slate-600'
+        }`;
+
+        let blocksHtml = '';
+        if (!rows.length) {
+          blocksHtml = `
+            <div class="text-center py-10 text-slate-500 text-xs font-medium">
+              Free Day
+            </div>`;
+        } else {
+          blocksHtml = rows.map(r => {
+            const t = themeFor(r.key, r.label);
+            return `
+              <div class="p-2 rounded-xl border ${t.rowBg} space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full ${t.dot}"></span>
+                    <span class="text-xs font-bold ${t.titleColor}">${esc(t.name)}</span>
+                  </div>
+                  <span class="text-[10px] font-semibold text-slate-400">${r.duration}h</span>
+                </div>
+                <div class="text-[11px] font-black text-white px-2 py-0.5 rounded-md border ${t.pillBg} text-center">
+                  ${esc(r.start)} – ${esc(r.end)}
+                </div>
+              </div>`;
+          }).join('');
+        }
+
+        col.innerHTML = `
+          <div>
+            <div class="cursor-pointer pb-2 mb-2.5 border-b border-appBorder/80 flex items-center justify-between" onclick="selectDate(${d})">
+              <div>
+                <span class="text-[10px] uppercase font-extrabold tracking-wider ${isSelected ? 'text-purple-400' : 'text-slate-400'}">${esc(rec.day)}</span>
+                <h4 class="text-lg font-black text-white">Date ${d}</h4>
+              </div>
+              <div class="text-right flex flex-col items-end gap-1">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm ${shiftColor}">${esc(s || 'Off')}</span>
+                ${cab ? '<span class="text-[8px] font-black uppercase text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 rounded-full">CAB</span>' : ''}
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              ${blocksHtml}
+            </div>
+          </div>
+          <div class="pt-3 mt-3 border-t border-appBorder/60 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+            <span>Monitor</span>
+            <span class="text-slate-200">${esc(rec.monitor_hours || '0h')}</span>
+          </div>
+        `;
+
+        container.appendChild(col);
+      });
     }
 
     function buildTimeline(schedule) {

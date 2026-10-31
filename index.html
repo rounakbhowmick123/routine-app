@@ -39,25 +39,30 @@
   </label>
 
   <!-- TOP HEADER -->
-  <header class="sticky top-0 z-30 bg-[#16161a]/90 backdrop-blur-md border-b border-appBorder px-4 pt-4 md:pt-4 pb-3">
-    <div class="max-w-md lg:max-w-7xl mx-auto flex items-center justify-between">
-      <div>
-        <p class="text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">&nbsp;</p>
-        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+  <header class="sticky top-0 z-30 bg-[#16161a]/95 backdrop-blur-md border-b border-appBorder px-3.5 pt-3.5 md:pt-4 pb-2.5">
+    <div class="max-w-md lg:max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <!-- Title & Month -->
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <p class="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">&nbsp;</p>
+          <span id="cab-status-pill" class="hidden text-[9px] font-black tracking-wider uppercase px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">CAB</span>
+        </div>
+        <h1 class="text-lg sm:text-xl font-black tracking-tight text-white leading-tight">
           Daily Schedule
-          <span id="cab-status-pill" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">CAB Day</span>
         </h1>
-        <p id="sync-status" class="text-[10px] text-slate-500 mt-0.5">Not synced yet</p>
+        <p id="sync-status" class="text-[9px] sm:text-[10px] text-slate-500 leading-none mt-0.5 truncate">Not synced yet</p>
       </div>
-      <div class="flex items-center space-x-2">
-        <button id="today-btn" onclick="jumpToToday()" class="px-3 py-1.5 rounded-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold active:scale-95 transition">&nbsp;</button>
-        <button onclick="refreshData(true)" class="p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Refresh">
-          <svg id="refresh-icon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-1.5 flex-shrink-0">
+        <button id="today-btn" onclick="jumpToToday()" class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-[11px] sm:text-xs font-semibold active:scale-95 transition">&nbsp;</button>
+        <button onclick="refreshData(true)" class="p-1.5 sm:p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Refresh">
+          <svg id="refresh-icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         </button>
-        <button onclick="openSettings()" class="p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Settings">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button onclick="openSettings()" class="p-1.5 sm:p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Settings">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -67,17 +72,17 @@
   </header>
 
   <!-- MOBILE ONLY: HORIZONTAL SCROLLABLE DATE STRIP -->
-  <section class="block lg:hidden bg-[#18181c] border-b border-appBorder py-3">
+  <section class="block lg:hidden bg-[#18181c] border-b border-appBorder py-2.5">
     <div class="max-w-md mx-auto">
       <div id="days-scroller" class="flex items-end gap-2 px-4 h-16"></div>
     </div>
-    <div class="max-w-md mx-auto mt-2 px-4 flex items-center justify-between text-[11px] text-slate-400">
+    <div class="max-w-md mx-auto mt-1.5 px-4 flex items-center justify-between text-[10px] text-slate-400">
       <div class="flex items-center space-x-1.5">
-        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/30"></span>
+        <span class="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/30"></span>
         <span>Amber = CAB Commute</span>
       </div>
       <div class="flex items-center space-x-1.5">
-        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
         <span>Selected</span>
       </div>
     </div>
@@ -167,7 +172,7 @@
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
     const AUTO_REFRESH_MS = 60 * 1000;
-    const DAY_ITEM_STEP = 52; // 44px item + 8px gap
+    const DAY_ITEM_STEP = 52;
 
     // ---------- STATE ----------
     let fullScheduleData = [];
@@ -205,14 +210,12 @@
       return localStorage.getItem('apps_script_url') || DEFAULT_API_URL;
     }
 
-    // Ordinal suffix generator: 1st, 2nd, 3rd, 4th, etc.
     function getOrdinal(n) {
       const s = ["th", "st", "nd", "rd"],
             v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
-    // Set button label to detailed format: e.g. "1st Nov, Sunday"
     function updateTodayButton() {
       const btn = document.getElementById('today-btn');
       if (btn) {
@@ -278,7 +281,7 @@
     function setStatus(text, isError) {
       const el = document.getElementById('sync-status');
       el.textContent = text;
-      el.className = 'text-[10px] mt-0.5 ' + (isError ? 'text-rose-400' : 'text-slate-500');
+      el.className = 'text-[9px] sm:text-[10px] leading-none mt-0.5 truncate ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
     // ---------- DATA PROCESSING WITH PREVIOUS 15 DAYS ----------
@@ -733,7 +736,6 @@
       });
     }
 
-    // Chronological timeline: empty/blank and "Free" slots are ignored completely
     function buildTimeline(schedule) {
       const rows = [];
       let cur = null, curLabel = '', startIdx = 0;
@@ -753,7 +755,6 @@
         let label = String(schedule[HOUR_SLOTS[i]] || '').trim();
         const key = label.toLowerCase();
 
-        // Omit empty cells or explicitly marked "Free" slots
         if (!label || key === 'free') {
           flush(i - 1);
           cur = null;

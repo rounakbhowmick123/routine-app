@@ -43,10 +43,7 @@
     <div class="max-w-md lg:max-w-7xl mx-auto flex items-center justify-between gap-2">
       <!-- Title & Month -->
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <p class="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">&nbsp;</p>
-          <span id="cab-status-pill" class="hidden text-[9px] font-black tracking-wider uppercase px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">CAB</span>
-        </div>
+        <p class="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-purple-400" id="current-month-year">&nbsp;</p>
         <h1 class="text-lg sm:text-xl font-black tracking-tight text-white leading-tight">
           Daily Schedule
         </h1>
@@ -115,7 +112,7 @@
         <div id="shift-badge-container" class="text-right"></div>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3 pt-1 text-xs">
-        <div class="bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50">
+        <div id="meta-commute-card" class="bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50 transition-colors">
           <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Commute</span>
           <span id="meta-commute" class="font-bold text-slate-200">None</span>
         </div>
@@ -227,6 +224,22 @@
       }
     }
 
+    function parseSheetMonthYear(sheetName) {
+      if (!sheetName) return null;
+      const cleaned = sheetName.replace(/[,\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+      const parts = cleaned.split(' ');
+      if (parts.length >= 2) {
+        const monthStr = parts[0];
+        let yearNum = parseInt(parts[1], 10);
+        if (yearNum < 100) yearNum += 2000;
+        const d = new Date(`1 ${monthStr} ${yearNum}`);
+        if (!isNaN(d.getTime())) {
+          return { year: d.getFullYear(), month: d.getMonth() };
+        }
+      }
+      return null;
+    }
+
     // ---------- HAPTICS ----------
     function haptic() {
       try {
@@ -249,6 +262,13 @@
           if (idx !== lastTickIdx) {
             lastTickIdx = idx;
             haptic();
+            // Dynamically update the header month based on which day is scrolled into view
+            if (fullScheduleData[idx]) {
+              const monthHeader = document.getElementById('current-month-year');
+              if (monthHeader) {
+                monthHeader.textContent = fullScheduleData[idx]._fullMonthYear || fullScheduleData[idx]._sheetName || '';
+              }
+            }
           }
         }, { passive: true });
       }
@@ -284,57 +304,72 @@
       el.className = 'text-[9px] sm:text-[10px] leading-none mt-0.5 truncate ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
-    // ---------- DATA PROCESSING WITH PREVIOUS 15 DAYS ----------
+    // ---------- DATA PROCESSING: STRICTLY LAST 8 DAYS OF PREV MONTH ----------
     function processDataset(rawJson) {
       const now = new Date();
       let targetYear = now.getFullYear();
       let targetMonth = now.getMonth();
 
-      if (rawJson[0] && rawJson[0]._sheetName) {
-        const parsed = new Date(rawJson[0]._sheetName);
-        if (!isNaN(parsed.getTime())) {
-          targetYear = parsed.getFullYear();
-          targetMonth = parsed.getMonth();
+      const prevRowsRaw = rawJson.filter(r => r._isPrevMonth === true);
+      const currRowsRaw = rawJson.filter(r => !r._isPrevMonth);
+
+      const currSample = currRowsRaw[0] || rawJson[rawJson.length - 1];
+      if (currSample && currSample._sheetName) {
+        const parsed = parseSheetMonthYear(currSample._sheetName);
+        if (parsed) {
+          targetYear = parsed.year;
+          targetMonth = parsed.month;
+        }
+      }
+
+      let prevYear = targetYear;
+      let prevMonth = targetMonth - 1;
+      if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear -= 1;
+      }
+      if (prevRowsRaw.length > 0 && prevRowsRaw[0]._sheetName) {
+        const parsed = parseSheetMonthYear(prevRowsRaw[0]._sheetName);
+        if (parsed) {
+          prevYear = parsed.year;
+          prevMonth = parsed.month;
         }
       }
 
       const pad = n => String(n).padStart(2, '0');
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-      const currentList = rawJson.map(item => {
-        const d = parseInt(item.date, 10);
-        const dateObj = new Date(targetYear, targetMonth, d);
-        return {
-          ...item,
-          _id: `${targetYear}-${pad(targetMonth + 1)}-${pad(d)}`,
-          _monthLabel: dateObj.toLocaleString('en-US', { month: 'short' }),
-          _isPrevMonth: false,
-          date: d,
-          day: item.day || dayNames[dateObj.getDay()]
-        };
-      });
+      let trimmedPrev = [];
+      if (prevRowsRaw.length > 0) {
+        trimmedPrev = prevRowsRaw.slice(-8).map(item => {
+          const d = parseInt(item.date, 10);
+          const dObj = new Date(prevYear, prevMonth, d);
+          return {
+            ...item,
+            _id: `${prevYear}-${pad(prevMonth + 1)}-${pad(d)}`,
+            _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
+            _fullMonthYear: dObj.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+            _isPrevMonth: true,
+            date: d,
+            day: item.day || dayNames[dObj.getDay()]
+          };
+        });
+      } else {
+        const prevMonthLastDate = new Date(targetYear, targetMonth, 0);
+        const lastDayNum = prevMonthLastDate.getDate();
+        const startDay = Math.max(1, lastDayNum - 7);
 
-      const prevMonthLastDate = new Date(targetYear, targetMonth, 0);
-      const prevYear = prevMonthLastDate.getFullYear();
-      const prevMonth = prevMonthLastDate.getMonth();
-      const lastDayNum = prevMonthLastDate.getDate();
-
-      const prev15List = [];
-      const startDay = Math.max(1, lastDayNum - 14);
-
-      for (let dayNum = startDay; dayNum <= lastDayNum; dayNum++) {
-        const id = `${prevYear}-${pad(prevMonth + 1)}-${pad(dayNum)}`;
-        const existing = rawJson.find(r => r._id === id || (r.date == dayNum && r._isPrevMonth));
-        if (existing) {
-          prev15List.push({ ...existing, _id: id, _isPrevMonth: true });
-        } else {
+        for (let dayNum = startDay; dayNum <= lastDayNum; dayNum++) {
+          const id = `${prevYear}-${pad(prevMonth + 1)}-${pad(dayNum)}`;
           const dObj = new Date(prevYear, prevMonth, dayNum);
-          prev15List.push({
+          trimmedPrev.push({
             _id: id,
             date: dayNum,
             day: dayNames[dObj.getDay()],
             _isPrevMonth: true,
             _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
+            _fullMonthYear: dObj.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+            _sheetName: dObj.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
             commute: 'None',
             shift: '',
             monitor_hours: '0 hrs',
@@ -343,7 +378,21 @@
         }
       }
 
-      return [...prev15List, ...currentList];
+      const mappedCurr = currRowsRaw.map(item => {
+        const d = parseInt(item.date, 10);
+        const dObj = new Date(targetYear, targetMonth, d);
+        return {
+          ...item,
+          _id: `${targetYear}-${pad(targetMonth + 1)}-${pad(d)}`,
+          _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
+          _fullMonthYear: dObj.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+          _isPrevMonth: false,
+          date: d,
+          day: item.day || dayNames[dObj.getDay()]
+        };
+      });
+
+      return [...trimmedPrev, ...mappedCurr];
     }
 
     function getTodayId() {
@@ -409,13 +458,6 @@
     function applyData(json) {
       fullScheduleData = processDataset(json);
 
-      if (json[0] && json[0]._sheetName) {
-        document.getElementById('current-month-year').textContent = json[0]._sheetName;
-      } else {
-        document.getElementById('current-month-year').textContent =
-          new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
-      }
-
       updateTodayButton();
 
       const todayId = getTodayId();
@@ -470,7 +512,7 @@
 
     // ---------- DATE STRIP RENDERING ----------
     function hasCabFor(rec) {
-      return !!(rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
+      return !!(rec && rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
     }
 
     function dayCircleClasses(selected, cab, isToday) {
@@ -499,17 +541,11 @@
         suppressTick = true;
         scroller.innerHTML = '';
 
-        fullScheduleData.forEach((rec, idx) => {
+        // Clean rendering: no dividers or "NEW" labels
+        fullScheduleData.forEach(rec => {
           const cab = hasCabFor(rec);
           const selected = rec._id === selectedDayId;
           const isToday = rec._id === todayId;
-
-          if (idx > 0 && rec._isPrevMonth === false && fullScheduleData[idx - 1]._isPrevMonth === true) {
-            const sep = document.createElement('div');
-            sep.className = 'flex-shrink-0 flex flex-col items-center justify-center px-1 border-r border-slate-700/60 h-10 self-center';
-            sep.innerHTML = '<span class="text-[8px] font-bold uppercase tracking-wider text-purple-400 rotate-180 writing-mode-vertical">NEW</span>';
-            scroller.appendChild(sep);
-          }
 
           const btn = document.createElement('button');
           btn.className = 'day-item flex flex-col items-center justify-end py-1 rounded-xl active:scale-95 transition h-full';
@@ -615,11 +651,29 @@
         return;
       }
 
+      // Automatically update the header month based on selected day
+      const monthHeader = document.getElementById('current-month-year');
+      if (monthHeader) {
+        monthHeader.textContent = rec._fullMonthYear || rec._sheetName || '';
+      }
+
       document.getElementById('selected-day-name').textContent = `${rec.day}${rec._isPrevMonth ? ` (${rec._monthLabel})` : ''}`;
       document.getElementById('selected-date-title').textContent = `${rec.day}, ${rec._monthLabel || ''} ${rec.date}`;
       document.getElementById('meta-commute').textContent = rec.commute || 'None';
       document.getElementById('meta-monitor').textContent = rec.monitor_hours || '0 hrs';
-      document.getElementById('cab-status-pill').classList.toggle('hidden', !hasCabFor(rec));
+
+      // Commute Card: Yellow/Amber bordered if CAB is present
+      const isCab = hasCabFor(rec);
+      const commuteCard = document.getElementById('meta-commute-card');
+      if (commuteCard) {
+        if (isCab) {
+          commuteCard.className = 'bg-amber-500/10 rounded-xl p-2.5 border-2 border-amber-400 ring-2 ring-amber-400/20 text-amber-300 transition-colors';
+          document.getElementById('meta-commute').className = 'font-bold text-amber-300';
+        } else {
+          commuteCard.className = 'bg-appSurface/60 rounded-xl p-2.5 border border-appBorder/50 text-slate-200 transition-colors';
+          document.getElementById('meta-commute').className = 'font-bold text-slate-200';
+        }
+      }
 
       const s = rec.shift;
       const shiftColor = !s ? '' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300';

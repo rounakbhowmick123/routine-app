@@ -167,12 +167,12 @@
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
     const AUTO_REFRESH_MS = 60 * 1000;
-    const DAY_ITEM_STEP = 52; // 44px item + 8px gap (mobile haptics)
+    const DAY_ITEM_STEP = 52; // 44px item + 8px gap
 
     // ---------- STATE ----------
     let fullScheduleData = [];
-    let selectedDateNumber = new Date().getDate();
-    let laptopWindowStart = 1;
+    let selectedDayId = ''; // Format: "YYYY-MM-DD"
+    let laptopWindowIndex = 0; // Index into fullScheduleData for laptop view
     let lastPayload = '';
     let pollTimer = null;
     let stripInitialized = false;
@@ -186,7 +186,7 @@
       "6pm - 7pm", "7pm - 8pm", "8pm - 9pm", "9pm - 10pm", "10pm - 11pm", "11pm - 12am"
     ];
 
-    // Updated colors: Free is light pink, Busy is darker grey
+    // Light pink for Free, darker grey for Busy
     const ACTIVITY_THEMES = {
       sleep:   { name: 'Sleep',   dot: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]',    titleColor: 'text-rose-400',   rowBg: 'bg-rose-950/20 hover:bg-rose-950/30 border-rose-500/20', pillBg: 'bg-rose-500/10 border-rose-500/30 text-rose-200' },
       busy:    { name: 'Busy',    dot: 'bg-slate-600 shadow-[0_0_8px_rgba(71,85,105,0.7)]',   titleColor: 'text-slate-400',  rowBg: 'bg-black/50 hover:bg-black/60 border-slate-800/80',      pillBg: 'bg-slate-900/80 border-slate-700/60 text-slate-300' },
@@ -201,7 +201,7 @@
       return ACTIVITY_THEMES[key] || { ...DEFAULT_THEME, name: rawName };
     }
     function esc(s) {
-      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function getApiUrl() {
       return localStorage.getItem('apps_script_url') || DEFAULT_API_URL;
@@ -263,19 +263,90 @@
       el.className = 'text-[10px] mt-0.5 ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
-    // ---------- SELECTION & WINDOW NAVIGATION ----------
-    function hasDate(d) { return fullScheduleData.some(r => parseInt(r.date, 10) === d); }
+    // ---------- DATA PROCESSING WITH PREVIOUS 15 DAYS ----------
+    function processDataset(rawJson) {
+      const now = new Date();
+      let targetYear = now.getFullYear();
+      let targetMonth = now.getMonth(); // 0-indexed
 
+      // Infer current month from sheet name if present (e.g., "October 2026")
+      if (rawJson[0] && rawJson[0]._sheetName) {
+        const parsed = new Date(rawJson[0]._sheetName);
+        if (!isNaN(parsed.getTime())) {
+          targetYear = parsed.getFullYear();
+          targetMonth = parsed.getMonth();
+        }
+      }
+
+      const pad = n => String(n).padStart(2, '0');
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      // Assign IDs to current data items
+      const currentList = rawJson.map(item => {
+        const d = parseInt(item.date, 10);
+        const dateObj = new Date(targetYear, targetMonth, d);
+        return {
+          ...item,
+          _id: `${targetYear}-${pad(targetMonth + 1)}-${pad(d)}`,
+          _monthLabel: dateObj.toLocaleString('en-US', { month: 'short' }),
+          _isPrevMonth: false,
+          date: d,
+          day: item.day || dayNames[dateObj.getDay()]
+        };
+      });
+
+      // Calculate last 15 days of the previous month
+      const prevMonthLastDate = new Date(targetYear, targetMonth, 0); // Last day of previous month
+      const prevYear = prevMonthLastDate.getFullYear();
+      const prevMonth = prevMonthLastDate.getMonth();
+      const lastDayNum = prevMonthLastDate.getDate();
+
+      const prev15List = [];
+      const startDay = Math.max(1, lastDayNum - 14);
+
+      for (let dayNum = startDay; dayNum <= lastDayNum; dayNum++) {
+        const id = `${prevYear}-${pad(prevMonth + 1)}-${pad(dayNum)}`;
+        // If current data already includes this day, reuse it; otherwise create standard entry
+        const existing = rawJson.find(r => r._id === id || (r.date == dayNum && r._isPrevMonth));
+        if (existing) {
+          prev15List.push({ ...existing, _id: id, _isPrevMonth: true });
+        } else {
+          const dObj = new Date(prevYear, prevMonth, dayNum);
+          prev15List.push({
+            _id: id,
+            date: dayNum,
+            day: dayNames[dObj.getDay()],
+            _isPrevMonth: true,
+            _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
+            commute: 'None',
+            shift: '',
+            monitor_hours: '0 hrs',
+            schedule: {}
+          });
+        }
+      }
+
+      return [...prev15List, ...currentList];
+    }
+
+    function getTodayId() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    // ---------- SELECTION & LAPTOP WINDOW ----------
     function syncLaptopWindowToSelection() {
-      const total = fullScheduleData.length || 31;
-      const maxStart = Math.max(1, total - 4);
-      if (selectedDateNumber < laptopWindowStart || selectedDateNumber >= laptopWindowStart + 5) {
-        laptopWindowStart = Math.min(Math.max(1, selectedDateNumber - 2), maxStart);
+      const selIdx = fullScheduleData.findIndex(r => r._id === selectedDayId);
+      if (selIdx === -1) return;
+      const maxStart = Math.max(0, fullScheduleData.length - 5);
+      if (selIdx < laptopWindowIndex || selIdx >= laptopWindowIndex + 5) {
+        laptopWindowIndex = Math.min(Math.max(0, selIdx - 2), maxStart);
       }
     }
 
-    function selectDate(n) {
-      selectedDateNumber = n;
+    function selectDateById(id) {
+      selectedDayId = id;
       syncLaptopWindowToSelection();
       haptic();
       updateStripSelection();
@@ -284,15 +355,15 @@
     }
 
     function navigateWindow(direction) {
-      const total = fullScheduleData.length || 31;
-      const maxStart = Math.max(1, total - 4);
-      let newStart = laptopWindowStart + (direction * 5);
-
-      if (newStart < 1) newStart = 1;
+      const maxStart = Math.max(0, fullScheduleData.length - 5);
+      let newStart = laptopWindowIndex + (direction * 5);
+      if (newStart < 0) newStart = 0;
       if (newStart > maxStart) newStart = maxStart;
 
-      laptopWindowStart = newStart;
-      selectedDateNumber = laptopWindowStart;
+      laptopWindowIndex = newStart;
+      if (fullScheduleData[laptopWindowIndex]) {
+        selectedDayId = fullScheduleData[laptopWindowIndex]._id;
+      }
 
       updateStripSelection();
       renderDaySchedule();
@@ -300,10 +371,16 @@
     }
 
     function jumpToToday() {
-      const today = new Date().getDate();
-      if (hasDate(today)) selectedDateNumber = today;
-      else if (fullScheduleData.length) selectedDateNumber = parseInt(fullScheduleData[0].date, 10);
-      
+      const todayId = getTodayId();
+      const exists = fullScheduleData.some(r => r._id === todayId);
+      if (exists) {
+        selectedDayId = todayId;
+      } else if (fullScheduleData.length) {
+        // Fallback to first day of current month portion
+        const firstCurrent = fullScheduleData.find(r => !r._isPrevMonth);
+        selectedDayId = firstCurrent ? firstCurrent._id : fullScheduleData[0]._id;
+      }
+
       syncLaptopWindowToSelection();
       haptic();
       updateStripSelection();
@@ -312,23 +389,28 @@
       renderLaptopMultiDay();
     }
 
-    // ---------- DATA ----------
+    // ---------- DATA APPLICATION ----------
     function applyData(json) {
-      fullScheduleData = json;
+      fullScheduleData = processDataset(json);
+
       if (json[0] && json[0]._sheetName) {
         document.getElementById('current-month-year').textContent = json[0]._sheetName;
       } else {
         document.getElementById('current-month-year').textContent =
           new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
       }
-      if (!hasDate(selectedDateNumber)) {
-        const today = new Date().getDate();
-        selectedDateNumber = hasDate(today) ? today : parseInt(json[0].date, 10);
+
+      const todayId = getTodayId();
+      if (!selectedDayId || !fullScheduleData.some(r => r._id === selectedDayId)) {
+        const hasToday = fullScheduleData.some(r => r._id === todayId);
+        selectedDayId = hasToday ? todayId : (fullScheduleData.find(r => !r._isPrevMonth) || fullScheduleData[0])._id;
       }
+
       syncLaptopWindowToSelection();
       buildStrip();
       renderDaySchedule();
       renderLaptopMultiDay();
+
       if (!stripInitialized) {
         scrollSelectedIntoView();
         stripInitialized = true;
@@ -368,12 +450,11 @@
       else if (manual) openSettings();
     }
 
-    // ---------- DATE STRIP ----------
+    // ---------- DATE STRIP RENDERING ----------
     function hasCabFor(rec) {
       return !!(rec.commute && rec.commute.trim().toUpperCase().includes('CAB'));
     }
 
-    // Mobile circle class generator: Selected & Today stay w-10 h-10, all others are smaller w-8 h-8
     function dayCircleClasses(selected, cab, isToday) {
       const isBig = selected || isToday;
       let c = `${isBig ? 'w-10 h-10' : 'w-8 h-8'} rounded-full flex flex-col items-center justify-center transition-all duration-200 `;
@@ -392,42 +473,37 @@
       return c;
     }
 
-    function getFiveDaysWindow() {
-      const total = fullScheduleData.length;
-      if (total === 0) return [];
-      const list = [];
-      const end = Math.min(laptopWindowStart + 4, total);
-      for (let d = laptopWindowStart; d <= end; d++) {
-        const item = fullScheduleData.find(r => parseInt(r.date, 10) === d);
-        if (item) list.push(item);
-      }
-      return list;
-    }
-
     function buildStrip() {
-      // Mobile Strip
       const scroller = document.getElementById('days-scroller');
-      const todayDate = new Date().getDate();
+      const todayId = getTodayId();
       if (scroller) {
         const keep = scroller.scrollLeft;
         suppressTick = true;
         scroller.innerHTML = '';
 
-        const sorted = [...fullScheduleData].sort((a, b) => parseInt(a.date, 10) - parseInt(b.date, 10));
-        sorted.forEach(rec => {
-          const d = parseInt(rec.date, 10);
+        fullScheduleData.forEach((rec, idx) => {
           const cab = hasCabFor(rec);
-          const selected = d === selectedDateNumber;
-          const isToday = d === todayDate;
+          const selected = rec._id === selectedDayId;
+          const isToday = rec._id === todayId;
+
+          // First day of current month gets a tiny marker separator
+          if (idx > 0 && rec._isPrevMonth === false && fullScheduleData[idx - 1]._isPrevMonth === true) {
+            const sep = document.createElement('div');
+            sep.className = 'flex-shrink-0 flex flex-col items-center justify-center px-1 border-r border-slate-700/60 h-10 self-center';
+            sep.innerHTML = '<span class="text-[8px] font-bold uppercase tracking-wider text-purple-400 rotate-180 writing-mode-vertical">NEW</span>';
+            scroller.appendChild(sep);
+          }
 
           const btn = document.createElement('button');
           btn.className = 'day-item flex flex-col items-center justify-end py-1 rounded-xl active:scale-95 transition h-full';
-          btn.dataset.day = d;
-          btn.onclick = () => selectDate(d);
+          btn.dataset.id = rec._id;
+          btn.onclick = () => selectDateById(rec._id);
           btn.innerHTML = `
-            <span class="day-label text-[9px] uppercase font-bold tracking-tight mb-1 ${selected ? 'text-purple-400' : isToday ? 'text-purple-300' : 'text-slate-400'}">${esc((rec.day || '').slice(0, 3))}</span>
+            <span class="day-label text-[9px] uppercase font-bold tracking-tight mb-1 ${
+              selected ? 'text-purple-400' : isToday ? 'text-purple-300' : rec._isPrevMonth ? 'text-slate-500' : 'text-slate-400'
+            }">${esc((rec.day || '').slice(0, 3))}</span>
             <div class="day-circle ${dayCircleClasses(selected, cab, isToday)}">
-              <span class="${selected || isToday ? 'text-xs' : 'text-[11px]'} font-bold leading-none">${d}</span>
+              <span class="${selected || isToday ? 'text-xs' : 'text-[11px]'} font-bold leading-none">${rec.date}</span>
               ${cab ? '<span class="text-[6px] font-black uppercase text-amber-300 leading-none mt-0.5">CAB</span>' : ''}
             </div>`;
           scroller.appendChild(btn);
@@ -446,26 +522,28 @@
       if (!container) return;
       container.innerHTML = '';
 
-      const todayDate = new Date().getDate();
-      const fiveDays = getFiveDaysWindow();
+      const todayId = getTodayId();
+      const fiveDays = fullScheduleData.slice(laptopWindowIndex, laptopWindowIndex + 5);
+
       fiveDays.forEach(rec => {
-        const d = parseInt(rec.date, 10);
         const cab = hasCabFor(rec);
-        const selected = d === selectedDateNumber;
-        const isToday = d === todayDate;
+        const selected = rec._id === selectedDayId;
+        const isToday = rec._id === todayId;
 
         const btn = document.createElement('button');
         btn.className = `p-3 rounded-2xl border transition-all flex items-center justify-between ${
           selected ? 'bg-purple-950/40 border-purple-500/60 ring-2 ring-purple-500/30' : 'bg-appCard border-appBorder hover:border-slate-600'
         }`;
-        btn.onclick = () => selectDate(d);
+        btn.onclick = () => selectDateById(rec._id);
         btn.innerHTML = `
           <div class="text-left">
-            <span class="text-xs uppercase font-extrabold ${selected ? 'text-purple-300' : 'text-slate-400'}">${esc(rec.day)}</span>
-            <p class="text-lg font-black text-white">Date ${d}</p>
+            <span class="text-xs uppercase font-extrabold ${selected ? 'text-purple-300' : rec._isPrevMonth ? 'text-slate-500' : 'text-slate-400'}">
+              ${esc(rec.day)} ${rec._isPrevMonth ? `(${rec._monthLabel})` : ''}
+            </span>
+            <p class="text-lg font-black text-white">Date ${rec.date}</p>
           </div>
           <div class="${dayCircleClasses(selected, cab, isToday)}">
-            <span class="text-xs font-bold">${d}</span>
+            <span class="text-xs font-bold">${rec.date}</span>
             ${cab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
           </div>`;
         container.appendChild(btn);
@@ -473,26 +551,28 @@
     }
 
     function updateStripSelection() {
-      const todayDate = new Date().getDate();
-      // Mobile update
+      const todayId = getTodayId();
       document.querySelectorAll('#days-scroller .day-item').forEach(btn => {
-        const d = parseInt(btn.dataset.day, 10);
-        const rec = fullScheduleData.find(r => parseInt(r.date, 10) === d);
+        const id = btn.dataset.id;
+        const rec = fullScheduleData.find(r => r._id === id);
         const cab = rec ? hasCabFor(rec) : false;
-        const selected = d === selectedDateNumber;
-        const isToday = d === todayDate;
+        const selected = id === selectedDayId;
+        const isToday = id === todayId;
+        const isPrev = rec ? rec._isPrevMonth : false;
+
         btn.querySelector('.day-circle').className = 'day-circle ' + dayCircleClasses(selected, cab, isToday);
-        btn.querySelector('.day-label').className = 'day-label text-[9px] uppercase font-bold tracking-tight mb-1 ' + (selected ? 'text-purple-400' : isToday ? 'text-purple-300' : 'text-slate-400');
+        btn.querySelector('.day-label').className = 'day-label text-[9px] uppercase font-bold tracking-tight mb-1 ' + (
+          selected ? 'text-purple-400' : isToday ? 'text-purple-300' : isPrev ? 'text-slate-500' : 'text-slate-400'
+        );
       });
 
-      // Laptop update
       buildLaptopStrip();
     }
 
     function scrollSelectedIntoView() {
       const scroller = document.getElementById('days-scroller');
       if (!scroller) return;
-      const btn = scroller.querySelector(`[data-day="${selectedDateNumber}"]`);
+      const btn = scroller.querySelector(`[data-id="${selectedDayId}"]`);
       if (!btn) return;
       suppressTick = true;
       scroller.scrollTo({ left: btn.offsetLeft - (scroller.clientWidth - btn.offsetWidth) / 2, behavior: 'smooth' });
@@ -505,7 +585,7 @@
     // ---------- DAY DETAILS ----------
     function renderDaySchedule() {
       const container = document.getElementById('activity-blocks-container');
-      const rec = fullScheduleData.find(i => parseInt(i.date, 10) === selectedDateNumber);
+      const rec = fullScheduleData.find(i => i._id === selectedDayId);
 
       if (!rec) {
         if (container) {
@@ -518,8 +598,8 @@
         return;
       }
 
-      document.getElementById('selected-day-name').textContent = rec.day;
-      document.getElementById('selected-date-title').textContent = `${rec.day}, Date ${rec.date}`;
+      document.getElementById('selected-day-name').textContent = `${rec.day}${rec._isPrevMonth ? ` (${rec._monthLabel})` : ''}`;
+      document.getElementById('selected-date-title').textContent = `${rec.day}, ${rec._monthLabel || ''} ${rec.date}`;
       document.getElementById('meta-commute').textContent = rec.commute || 'None';
       document.getElementById('meta-monitor').textContent = rec.monitor_hours || '0 hrs';
       document.getElementById('cab-status-pill').classList.toggle('hidden', !hasCabFor(rec));
@@ -566,12 +646,12 @@
       if (!container) return;
       container.innerHTML = '';
 
-      const fiveDays = getFiveDaysWindow();
+      const todayId = getTodayId();
+      const fiveDays = fullScheduleData.slice(laptopWindowIndex, laptopWindowIndex + 5);
       if (!fiveDays.length) return;
 
       fiveDays.forEach(rec => {
-        const d = parseInt(rec.date, 10);
-        const isSelected = d === selectedDateNumber;
+        const isSelected = rec._id === selectedDayId;
         const cab = hasCabFor(rec);
         const s = rec.shift;
         const shiftColor = !s ? 'bg-slate-700 text-slate-300' : s.startsWith('M') ? 'bg-emerald-600 text-white' : s === 'WO' ? 'bg-rose-600 text-white' : s.startsWith('A') ? 'bg-blue-600 text-white' : s.startsWith('N') ? 'bg-slate-500 text-white' : 'bg-purple-500/20 text-purple-300';
@@ -603,10 +683,12 @@
 
         col.innerHTML = `
           <div>
-            <div class="cursor-pointer pb-2 mb-2.5 border-b border-appBorder/80 flex items-center justify-between" onclick="selectDate(${d})">
+            <div class="cursor-pointer pb-2 mb-2.5 border-b border-appBorder/80 flex items-center justify-between" onclick="selectDateById('${rec._id}')">
               <div>
-                <span class="text-[10px] uppercase font-extrabold tracking-wider ${isSelected ? 'text-purple-400' : 'text-slate-400'}">${esc(rec.day)}</span>
-                <h4 class="text-lg font-black text-white">Date ${d}</h4>
+                <span class="text-[10px] uppercase font-extrabold tracking-wider ${isSelected ? 'text-purple-400' : rec._isPrevMonth ? 'text-slate-500' : 'text-slate-400'}">
+                  ${esc(rec.day)} ${rec._isPrevMonth ? `(${rec._monthLabel})` : ''}
+                </span>
+                <h4 class="text-lg font-black text-white">Date ${rec.date}</h4>
               </div>
               <div class="text-right flex flex-col items-end gap-1">
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm ${shiftColor}">${esc(s || 'Off')}</span>

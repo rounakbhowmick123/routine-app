@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Schedule & Shifts</title>
+  
+  <!-- Favicons & App Icons -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#18181b" />
@@ -262,7 +270,6 @@
           if (idx !== lastTickIdx) {
             lastTickIdx = idx;
             haptic();
-            // Dynamically update the header month based on which day is scrolled into view
             if (fullScheduleData[idx]) {
               const monthHeader = document.getElementById('current-month-year');
               if (monthHeader) {
@@ -541,7 +548,6 @@
         suppressTick = true;
         scroller.innerHTML = '';
 
-        // Clean rendering: no dividers or "NEW" labels
         fullScheduleData.forEach(rec => {
           const cab = hasCabFor(rec);
           const selected = rec._id === selectedDayId;
@@ -651,7 +657,6 @@
         return;
       }
 
-      // Automatically update the header month based on selected day
       const monthHeader = document.getElementById('current-month-year');
       if (monthHeader) {
         monthHeader.textContent = rec._fullMonthYear || rec._sheetName || '';
@@ -662,7 +667,6 @@
       document.getElementById('meta-commute').textContent = rec.commute || 'None';
       document.getElementById('meta-monitor').textContent = rec.monitor_hours || '0 hrs';
 
-      // Commute Card: Yellow/Amber bordered if CAB is present
       const isCab = hasCabFor(rec);
       const commuteCard = document.getElementById('meta-commute-card');
       if (commuteCard) {

@@ -205,11 +205,22 @@
       return localStorage.getItem('apps_script_url') || DEFAULT_API_URL;
     }
 
-    // Set button label to the current date number
+    // Ordinal suffix generator: 1st, 2nd, 3rd, 4th, etc.
+    function getOrdinal(n) {
+      const s = ["th", "st", "nd", "rd"],
+            v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    // Set button label to detailed format: e.g. "1st Nov, Sunday"
     function updateTodayButton() {
       const btn = document.getElementById('today-btn');
       if (btn) {
-        btn.textContent = new Date().getDate();
+        const now = new Date();
+        const dateNum = now.getDate();
+        const monthShort = now.toLocaleString('en-US', { month: 'short' });
+        const weekday = now.toLocaleString('en-US', { weekday: 'long' });
+        btn.textContent = `${getOrdinal(dateNum)} ${monthShort}, ${weekday}`;
       }
     }
 

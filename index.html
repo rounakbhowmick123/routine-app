@@ -284,14 +284,16 @@
       el.className = 'text-[9px] sm:text-[10px] leading-none mt-0.5 truncate ' + (isError ? 'text-rose-400' : 'text-slate-500');
     }
 
-    // ---------- DATA PROCESSING WITH PREVIOUS 15 DAYS ----------
+    // ---------- DATA PROCESSING WITH PREVIOUS 8 DAYS ----------
     function processDataset(rawJson) {
       const now = new Date();
       let targetYear = now.getFullYear();
       let targetMonth = now.getMonth();
 
-      if (rawJson[0] && rawJson[0]._sheetName) {
-        const parsed = new Date(rawJson[0]._sheetName);
+      // Check current month from the sheet payload (latest sheetName)
+      const currentSheetItem = rawJson.find(r => !r._isPrevMonth) || rawJson[rawJson.length - 1];
+      if (currentSheetItem && currentSheetItem._sheetName) {
+        const parsed = new Date(currentSheetItem._sheetName.replace(/-/g, ' '));
         if (!isNaN(parsed.getTime())) {
           targetYear = parsed.getFullYear();
           targetMonth = parsed.getMonth();
@@ -301,6 +303,50 @@
       const pad = n => String(n).padStart(2, '0');
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+      const prevMonthLastDate = new Date(targetYear, targetMonth, 0);
+      const prevYear = prevMonthLastDate.getFullYear();
+      const prevMonth = prevMonthLastDate.getMonth();
+      const lastDayNum = prevMonthLastDate.getDate();
+
+      // If backend already passed items, map them accurately
+      const rawHasPrev = rawJson.some(r => r._isPrevMonth);
+
+      if (rawHasPrev) {
+        // Backend sent combined rows (previous + current)
+        const prevRows = rawJson.filter(r => r._isPrevMonth);
+        const currRows = rawJson.filter(r => !r._isPrevMonth);
+
+        // Keep strictly last 8 days from previous month
+        const trimmedPrev = prevRows.slice(-8).map(item => {
+          const d = parseInt(item.date, 10);
+          const dateObj = new Date(prevYear, prevMonth, d);
+          return {
+            ...item,
+            _id: `${prevYear}-${pad(prevMonth + 1)}-${pad(d)}`,
+            _monthLabel: dateObj.toLocaleString('en-US', { month: 'short' }),
+            _isPrevMonth: true,
+            date: d,
+            day: item.day || dayNames[dateObj.getDay()]
+          };
+        });
+
+        const mappedCurr = currRows.map(item => {
+          const d = parseInt(item.date, 10);
+          const dateObj = new Date(targetYear, targetMonth, d);
+          return {
+            ...item,
+            _id: `${targetYear}-${pad(targetMonth + 1)}-${pad(d)}`,
+            _monthLabel: dateObj.toLocaleString('en-US', { month: 'short' }),
+            _isPrevMonth: false,
+            date: d,
+            day: item.day || dayNames[dateObj.getDay()]
+          };
+        });
+
+        return [...trimmedPrev, ...mappedCurr];
+      }
+
+      // Fallback: If backend only provided current month, generate placeholders for last 8 days of previous month
       const currentList = rawJson.map(item => {
         const d = parseInt(item.date, 10);
         const dateObj = new Date(targetYear, targetMonth, d);
@@ -314,36 +360,26 @@
         };
       });
 
-      const prevMonthLastDate = new Date(targetYear, targetMonth, 0);
-      const prevYear = prevMonthLastDate.getFullYear();
-      const prevMonth = prevMonthLastDate.getMonth();
-      const lastDayNum = prevMonthLastDate.getDate();
-
-      const prev15List = [];
-      const startDay = Math.max(1, lastDayNum - 14);
+      const prev8List = [];
+      const startDay = Math.max(1, lastDayNum - 7); // Exactly 8 days: lastDayNum - 7 to lastDayNum
 
       for (let dayNum = startDay; dayNum <= lastDayNum; dayNum++) {
         const id = `${prevYear}-${pad(prevMonth + 1)}-${pad(dayNum)}`;
-        const existing = rawJson.find(r => r._id === id || (r.date == dayNum && r._isPrevMonth));
-        if (existing) {
-          prev15List.push({ ...existing, _id: id, _isPrevMonth: true });
-        } else {
-          const dObj = new Date(prevYear, prevMonth, dayNum);
-          prev15List.push({
-            _id: id,
-            date: dayNum,
-            day: dayNames[dObj.getDay()],
-            _isPrevMonth: true,
-            _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
-            commute: 'None',
-            shift: '',
-            monitor_hours: '0 hrs',
-            schedule: {}
-          });
-        }
+        const dObj = new Date(prevYear, prevMonth, dayNum);
+        prev8List.push({
+          _id: id,
+          date: dayNum,
+          day: dayNames[dObj.getDay()],
+          _isPrevMonth: true,
+          _monthLabel: dObj.toLocaleString('en-US', { month: 'short' }),
+          commute: 'None',
+          shift: '',
+          monitor_hours: '0 hrs',
+          schedule: {}
+        });
       }
 
-      return [...prev15List, ...currentList];
+      return [...prev8List, ...currentList];
     }
 
     function getTodayId() {
@@ -409,8 +445,9 @@
     function applyData(json) {
       fullScheduleData = processDataset(json);
 
-      if (json[0] && json[0]._sheetName) {
-        document.getElementById('current-month-year').textContent = json[0]._sheetName;
+      const currentItem = fullScheduleData.find(r => !r._isPrevMonth) || fullScheduleData[fullScheduleData.length - 1];
+      if (currentItem && currentItem._sheetName) {
+        document.getElementById('current-month-year').textContent = currentItem._sheetName;
       } else {
         document.getElementById('current-month-year').textContent =
           new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
@@ -504,6 +541,7 @@
           const selected = rec._id === selectedDayId;
           const isToday = rec._id === todayId;
 
+          // First day of current month gets a tiny marker separator
           if (idx > 0 && rec._isPrevMonth === false && fullScheduleData[idx - 1]._isPrevMonth === true) {
             const sep = document.createElement('div');
             sep.className = 'flex-shrink-0 flex flex-col items-center justify-center px-1 border-r border-slate-700/60 h-10 self-center';

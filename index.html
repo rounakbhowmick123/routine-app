@@ -515,11 +515,10 @@
     }
 
     function dayCircleClasses(selected, cab, isToday) {
-      const isBig = selected || isToday;
-      let c = `${isBig ? 'w-10 h-10' : 'w-8 h-8'} rounded-full flex flex-col items-center justify-center transition-all duration-200 `;
+      let c = 'w-9 h-9 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
       
       if (selected) {
-        c += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
+        c += 'bg-purple-600 text-white ring-4 ring-purple-500/30 shadow-lg shadow-purple-600/30';
         if (isToday) c += ' border-2 border-purple-300';
       } else if (isToday) {
         c += 'bg-appSurface text-purple-300 border-2 border-purple-400 ring-2 ring-purple-500/20';
@@ -555,10 +554,10 @@
               selected ? 'text-purple-400' : isToday ? 'text-purple-300' : rec._isPrevMonth ? 'text-slate-500' : 'text-slate-400'
             }">${esc((rec.day || '').slice(0, 3))}</span>
             <div class="day-circle ${dayCircleClasses(selected, cab, isToday)}">
-              <span class="${selected || isToday ? 'text-xs' : 'text-[11px]'} font-bold leading-none">${rec.date}</span>
+              <span class="text-[11px] font-bold leading-none">${rec.date}</span>
               ${cab ? '<span class="text-[6px] font-black uppercase text-amber-300 leading-none mt-0.5">CAB</span>' : ''}
             </div>
-            <div class="h-1.5 flex items-center justify-center mt-0.5">
+            <div class="h-2 flex items-center justify-center mt-1.5">
               ${isWo ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]"></span>' : ''}
             </div>`;
           scroller.appendChild(btn);

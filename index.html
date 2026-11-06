@@ -65,7 +65,7 @@
         </button>
         <button onclick="openSettings()" class="p-1.5 sm:p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Settings">
           <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
@@ -73,25 +73,10 @@
     </div>
   </header>
 
-  <!-- MOBILE ONLY: HORIZONTAL SCROLLABLE DATE STRIP -->
-  <section class="block lg:hidden bg-[#18181c] border-b border-appBorder py-2.5">
-    <div class="max-w-md mx-auto">
+  <!-- HORIZONTAL SCROLLABLE DATE STRIP (MOBILE & LAPTOP SCROLLER) -->
+  <section class="bg-[#18181c] border-b border-appBorder py-2.5">
+    <div class="max-w-md lg:max-w-6xl mx-auto">
       <div id="days-scroller" class="flex items-end gap-2 px-4 h-16"></div>
-    </div>
-  </section>
-
-  <!-- LAPTOP ONLY: 5-DAY STRIP WITH 5-DAY WINDOW JUMP ARROWS -->
-  <section class="hidden lg:block bg-[#18181c] border-b border-appBorder py-3 px-6">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-      <button onclick="navigateWindow(-1)" aria-label="Previous 5 Days" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Previous 5 Days">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
-      </button>
-
-      <div id="laptop-days-container" class="flex-1 grid grid-cols-5 gap-3"></div>
-
-      <button onclick="navigateWindow(1)" aria-label="Next 5 Days" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Next 5 Days">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
-      </button>
     </div>
   </section>
 
@@ -262,6 +247,14 @@
             }
           }
         }, { passive: true });
+
+        // Smooth horizontal scrolling on desktop mouse wheel
+        scroller.addEventListener('wheel', (e) => {
+          if (e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+            scroller.scrollLeft += e.deltaY;
+            e.preventDefault();
+          }
+        }, { passive: false });
       }
 
       try {
@@ -572,41 +565,6 @@
         lastTickIdx = Math.round(scroller.scrollLeft / DAY_ITEM_STEP);
         setTimeout(() => { suppressTick = false; }, 150);
       }
-
-      buildLaptopStrip();
-    }
-
-    function buildLaptopStrip() {
-      const container = document.getElementById('laptop-days-container');
-      if (!container) return;
-      container.innerHTML = '';
-
-      const todayId = getTodayId();
-      const fiveDays = fullScheduleData.slice(laptopWindowIndex, laptopWindowIndex + 5);
-
-      fiveDays.forEach(rec => {
-        const cab = hasCabFor(rec);
-        const selected = rec._id === selectedDayId;
-        const isToday = rec._id === todayId;
-
-        const btn = document.createElement('button');
-        btn.className = `p-3 rounded-2xl border transition-all flex items-center justify-between ${
-          selected ? 'bg-purple-950/40 border-purple-500/60 ring-2 ring-purple-500/30' : 'bg-appCard border-appBorder hover:border-slate-600'
-        }`;
-        btn.onclick = () => selectDateById(rec._id);
-        btn.innerHTML = `
-          <div class="text-left">
-            <span class="text-xs uppercase font-extrabold ${selected ? 'text-purple-300' : rec._isPrevMonth ? 'text-slate-500' : 'text-slate-400'}">
-              ${esc(rec.day)} ${rec._isPrevMonth ? `(${rec._monthLabel})` : ''}
-            </span>
-            <p class="text-lg font-black text-white">Date ${rec.date}</p>
-          </div>
-          <div class="${dayCircleClasses(selected, cab, isToday)}">
-            <span class="text-[11px] font-bold leading-none">${rec.date}</span>
-            ${cab ? '<span class="text-[7px] font-black uppercase text-amber-300 leading-none">CAB</span>' : ''}
-          </div>`;
-        container.appendChild(btn);
-      });
     }
 
     function updateStripSelection() {
@@ -624,8 +582,6 @@
           selected ? 'text-purple-400' : isToday ? 'text-purple-300' : isPrev ? 'text-slate-500' : 'text-slate-400'
         );
       });
-
-      buildLaptopStrip();
     }
 
     function scrollSelectedIntoView() {

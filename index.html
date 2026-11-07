@@ -36,7 +36,10 @@
       position: relative;
     }
     #days-scroller::-webkit-scrollbar { display: none; }
-    .day-item { scroll-snap-align: center; flex: 0 0 52px; }
+    .day-item { scroll-snap-align: center; flex: 0 0 44px; }
+    @media (min-width: 1024px) {
+      .day-item { flex: 0 0 50px; }
+    }
   </style>
 </head>
 <body class="bg-[#121214] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-purple-500 selection:text-white">
@@ -65,7 +68,7 @@
         </button>
         <button onclick="openSettings()" class="p-1.5 sm:p-2 rounded-full bg-appSurface hover:bg-slate-700 text-slate-300 active:scale-95 transition" title="Settings">
           <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
@@ -73,10 +76,10 @@
     </div>
   </header>
 
-  <!-- HORIZONTAL SCROLLABLE DATE STRIP (MOBILE & LAPTOP SCROLLER) -->
+  <!-- HORIZONTAL SCROLLABLE DATE STRIP -->
   <section class="bg-[#18181c] border-b border-appBorder py-2.5">
-    <div class="max-w-md lg:max-w-6xl mx-auto">
-      <div id="days-scroller" class="flex items-end gap-2 px-4 h-16"></div>
+    <div class="max-w-md lg:max-w-7xl mx-auto">
+      <div id="days-scroller" class="flex items-end gap-1.5 sm:gap-2 px-3 sm:px-4 h-16"></div>
     </div>
   </section>
 
@@ -88,22 +91,28 @@
         <div>
           <h2 id="selected-date-title" class="text-xl sm:text-2xl font-black text-white">&nbsp;</h2>
         </div>
-        <div id="shift-badge-container" class="text-right"></div>
+        <div class="flex items-center space-x-2">
+          <!-- Mobile Free Pill (Beside Shift Badge) -->
+          <div class="block lg:hidden bg-appSurface/80 border border-appBorder px-2.5 py-1 rounded-full text-xs font-semibold text-slate-300">
+            Free: <span id="meta-free-mobile" class="font-bold text-slate-200">24 hrs</span>
+          </div>
+          <div id="shift-badge-container" class="text-right"></div>
+        </div>
       </div>
       
-      <!-- 3-Column Metrics: Commute, Monitor, and Free -->
-      <div class="grid grid-cols-3 gap-2.5 mt-3 pt-1 text-xs">
+      <!-- Metrics Grid: 2 Columns on Mobile (Giving Commute Full Space), 3 Columns on Laptop -->
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3 pt-1 text-xs">
         <div id="meta-commute-card" class="bg-appSurface/60 rounded-xl p-2.5 sm:p-3 border border-appBorder/50 transition-colors">
           <span class="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400 block mb-0.5">Commute</span>
-          <span id="meta-commute" class="font-bold text-slate-200 truncate block">None</span>
+          <span id="meta-commute" class="font-bold text-slate-200 break-words block leading-snug">None</span>
         </div>
         <div class="bg-appSurface/60 rounded-xl p-2.5 sm:p-3 border border-appBorder/50">
           <span class="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400 block mb-0.5">Monitor</span>
           <span id="meta-monitor" class="font-bold text-slate-200 truncate block">0 hrs</span>
         </div>
-        <div class="bg-appSurface/60 rounded-xl p-2.5 sm:p-3 border border-appBorder/50">
-          <span class="text-[10px] sm:text-[11px] uppercase font-bold text-emerald-400 block mb-0.5">Free</span>
-          <span id="meta-free" class="font-bold text-emerald-300 truncate block">24 hrs</span>
+        <div class="hidden lg:block bg-appSurface/60 rounded-xl p-2.5 sm:p-3 border border-appBorder/50">
+          <span class="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400 block mb-0.5">Free</span>
+          <span id="meta-free" class="font-bold text-slate-200 truncate block">24 hrs</span>
         </div>
       </div>
     </section>
@@ -146,7 +155,7 @@
     // ---------- CONFIG ----------
     const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxZc7ILUfZzwLXYFdgfzR0blBDeRiLBJ3gk5gTJAcb3fm2fkBwtdDYbnGUXwmfsBkIs/exec';
     const AUTO_REFRESH_MS = 60 * 1000;
-    const DAY_ITEM_STEP = 52;
+    const DAY_ITEM_STEP = 50;
 
     // ---------- STATE ----------
     let fullScheduleData = [];
@@ -248,7 +257,7 @@
           }
         }, { passive: true });
 
-        // Smooth horizontal scrolling on desktop mouse wheel
+        // Horizontal mouse wheel scrolling for desktops
         scroller.addEventListener('wheel', (e) => {
           if (e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
             scroller.scrollLeft += e.deltaY;
@@ -513,7 +522,7 @@
     }
 
     function dayCircleClasses(selected, cab, isToday) {
-      let c = 'w-9 h-9 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
+      let c = 'w-8 h-8 sm:w-9 sm:h-9 rounded-full flex flex-col items-center justify-center transition-all duration-200 ';
       
       if (selected) {
         c += 'bg-purple-600 text-white ring-4 ring-purple-500/30 scale-105 shadow-lg shadow-purple-600/30';
@@ -618,25 +627,26 @@
         monthHeader.textContent = rec._fullMonthYear || rec._sheetName || '';
       }
 
-      // Title shows Day, Month and Date cleanly without repeated colored text
       document.getElementById('selected-date-title').textContent = `${rec.day}, ${rec._monthLabel || ''} ${rec.date}`;
       document.getElementById('meta-commute').textContent = rec.commute || 'None';
       document.getElementById('meta-monitor').textContent = rec.monitor_hours || '0 hrs';
 
-      // Calculate and display Free hours
+      // Calculate and display Free hours in neutral monitor-like color
       const freeHours = calculateFreeHours(rec.schedule || {});
       const freeElem = document.getElementById('meta-free');
+      const freeMobileElem = document.getElementById('meta-free-mobile');
       if (freeElem) freeElem.textContent = `${freeHours} hrs`;
+      if (freeMobileElem) freeMobileElem.textContent = `${freeHours} hrs`;
 
       const isCab = hasCabFor(rec);
       const commuteCard = document.getElementById('meta-commute-card');
       if (commuteCard) {
         if (isCab) {
           commuteCard.className = 'bg-amber-500/10 rounded-xl p-2.5 sm:p-3 border-2 border-amber-400 ring-2 ring-amber-400/20 text-amber-300 transition-colors';
-          document.getElementById('meta-commute').className = 'font-bold text-amber-300 truncate block';
+          document.getElementById('meta-commute').className = 'font-bold text-amber-300 break-words block leading-snug';
         } else {
           commuteCard.className = 'bg-appSurface/60 rounded-xl p-2.5 sm:p-3 border border-appBorder/50 text-slate-200 transition-colors';
-          document.getElementById('meta-commute').className = 'font-bold text-slate-200 truncate block';
+          document.getElementById('meta-commute').className = 'font-bold text-slate-200 break-words block leading-snug';
         }
       }
 
@@ -712,7 +722,7 @@
               <div class="p-2 rounded-xl border ${t.rowBg} space-y-1">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-1.5">
-                    <span class="w-2 h-2 rounded-full ${t.dot}"></span>
+                    <span class="w-2.5 h-2.5 rounded-full ${t.dot}"></span>
                     <span class="text-xs font-bold ${t.titleColor}">${esc(t.name)}</span>
                   </div>
                   <span class="text-[10px] font-semibold text-slate-400">${r.duration}h</span>
@@ -742,7 +752,7 @@
             </div>
           </div>
           <div class="pt-3 mt-3 border-t border-appBorder/60 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-            <span>Free: <strong class="text-emerald-300">${freeHours}h</strong></span>
+            <span>Free: <strong class="text-slate-200">${freeHours}h</strong></span>
             <span>Mon: <strong class="text-slate-200">${esc(rec.monitor_hours || '0h')}</strong></span>
           </div>
         `;
